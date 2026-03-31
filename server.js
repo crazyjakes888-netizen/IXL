@@ -11,6 +11,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const players = {}; // socketId -> { name, cookies, cps }
 
+const BAD_WORDS = ['fuck','shit','ass','bitch','damn','crap','piss','dick','cock','pussy','bastard','hell','cunt','fag','slut','whore','nigger','nigga','retard','kill yourself','kys'];
+function filterMsg(text) {
+  let out = text;
+  BAD_WORDS.forEach(w => {
+    const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+    out = out.replace(re, '*'.repeat(w.length));
+  });
+  return out;
+}
+
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
@@ -42,9 +52,10 @@ io.on('connection', (socket) => {
       ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])
     );
     if (!safeMsg.trim()) return;
+    const filteredMsg = filterMsg(safeMsg);
     io.emit('chat', {
       name: players[socket.id].name,
-      msg: safeMsg,
+      msg: filteredMsg,
       time: Date.now()
     });
   });
