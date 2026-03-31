@@ -459,14 +459,11 @@
     });
   }
 
-  document.getElementById('join-btn').addEventListener('click', () => {
-    const name = document.getElementById('name-input').value.trim() || 'Anonymous';
-    startGame(name);
-  });
-
-  document.getElementById('name-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('join-btn').click();
-  });
+  // Auto-join with a random name
+  const adjectives = ['Fast','Cool','Epic','Wild','Bold','Sly','Keen','Brave','Swift','Spicy'];
+  const nouns = ['Cookie','Baker','Clicker','Muncher','Chomper','Crumble','Snacker','Nibbler'];
+  const randomName = adjectives[Math.floor(Math.random()*adjectives.length)] + nouns[Math.floor(Math.random()*nouns.length)] + Math.floor(Math.random()*99);
+  startGame(randomName);
 
   // ---- Chat send ----
   function sendChat() {
