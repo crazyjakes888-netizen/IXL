@@ -18,7 +18,7 @@ function normalize(str) {
   return str.toLowerCase()
     .replace(/[@4]/g,'a')
     .replace(/[38]/g,'e')
-    .replace(/[1!|]/g,'i')
+    .replace(/[1!|(]/g,'i')
     .replace(/[0]/g,'o')
     .replace(/[$5]/g,'s')
     .replace(/[7]/g,'t')
