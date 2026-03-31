@@ -186,8 +186,8 @@ io.on('connection', (socket) => {
     const entry = Object.entries(players).find(([,p]) => p.name === targetName);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedIPs[entry[1].ip] = 'perm';
-    io.emit('chat', { system: true, msg: `🔇 ${targetName} was muted.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Muted ${targetName} (IP-locked).` });
+    io.emit('chat', { system: true, msg: `🔇 ${targetName} was permanently muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Permanently muted ${targetName} (IP-locked).` });
   });
 
   socket.on('admin_unmute', (targetName) => {

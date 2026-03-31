@@ -901,11 +901,11 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
-      adminLog('/mute (name)', 'alog-warn');
-      adminLog('/unmute (name)', 'alog-warn');
-      adminLog('/clear', 'alog-warn');
-      adminLog('/timeout (name) (seconds)', 'alog-warn');
-      adminLog('/ban (name) (seconds|perm)', 'alog-warn');
+      adminLog('/mute (name)          — permanent mute', 'alog-warn');
+      adminLog('/unmute (name)        — remove mute', 'alog-warn');
+      adminLog('/timeout (name) (sec) — temp mute', 'alog-warn');
+      adminLog('/ban (name) (sec|perm)— ban', 'alog-warn');
+      adminLog('/clear                — clear chat', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
