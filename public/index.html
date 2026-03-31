@@ -28,6 +28,59 @@
       letter-spacing: 2px;
     }
 
+    #admin-btn {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    #admin-btn:hover { background: #444; }
+
+    #admin-box {
+      background: #1e1e1e;
+      border: 2px solid #444;
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 320px;
+      max-width: 420px;
+      width: 90%;
+    }
+    #admin-box h3 { color: #fff; margin-bottom: 14px; }
+    #admin-pass {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid #444; background: #111; color: #eee;
+      font-size: 0.9rem; outline: none; margin-bottom: 8px;
+    }
+    #admin-submit {
+      width: 100%; padding: 10px; background: #444; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+    }
+    #admin-submit:hover { background: #555; }
+    .admin-player-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid #333; font-size: 0.85rem;
+    }
+    .admin-player-row .apname { color: #eee; flex: 1; }
+    .admin-player-row .apname.muted { color: #888; text-decoration: line-through; }
+    .admin-player-row button {
+      margin-left: 6px; padding: 3px 8px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 0.75rem; font-weight: bold;
+    }
+    .btn-mute { background: #555; color: #fff; }
+    .btn-unmute { background: #335533; color: #aaffaa; }
+    .btn-reset { background: #553333; color: #ffaaaa; }
+    #admin-clearchat-btn {
+      background: #444; color: #fff; border: none; border-radius: 6px;
+      padding: 5px 12px; cursor: pointer; font-size: 0.8rem;
+    }
+
     #name-changer {
       font-size: 0.9rem;
       padding: 4px 8px;
@@ -304,7 +357,31 @@
   </div>
 </div>
 
-<header>🍪 COOKIE CHAT &nbsp;|&nbsp; <input id="name-changer" type="text" maxlength="20" placeholder="Your name..." title="Press Enter to change name" /></header>
+<header>
+  🍪 COOKIE CHAT &nbsp;|&nbsp;
+  <input id="name-changer" type="text" maxlength="20" placeholder="Your name..." title="Press Enter to change name" />
+  <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
+</header>
+
+<!-- Admin Modal -->
+<div id="admin-modal" style="display:none;position:fixed;inset:0;background:#000000bb;z-index:200;align-items:center;justify-content:center;">
+  <div id="admin-box">
+    <div id="admin-login-view">
+      <h3>🔑 Admin Login</h3>
+      <input id="admin-pass" type="password" placeholder="Password..." />
+      <button id="admin-submit">Login</button>
+      <div id="admin-error" style="color:#ff5555;font-size:0.8rem;margin-top:6px;"></div>
+    </div>
+    <div id="admin-panel-view" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3>🛡️ Admin Panel</h3>
+        <button id="admin-clearchat-btn">🧹 Clear Chat</button>
+      </div>
+      <div id="admin-player-list"></div>
+    </div>
+    <button id="admin-close" style="margin-top:12px;width:100%;background:#333;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer;">Close</button>
+  </div>
+</div>
 
 <div id="main">
   <div id="game-panel">
@@ -468,8 +545,8 @@
 
     socket.on('chat_cooldown', (secs) => {
       const input = document.getElementById('chat-input');
-      input.placeholder = `Wait ${secs}s...`;
-      setTimeout(() => { input.placeholder = 'Say something...'; }, secs * 1000);
+      input.placeholder = secs === 'muted' ? 'You are muted.' : `Wait ${secs}s...`;
+      if (secs !== 'muted') setTimeout(() => { input.placeholder = 'Say something...'; }, secs * 1000);
     });
 
     socket.on('chat', ({ system, name, msg, time }) => {
@@ -484,6 +561,43 @@
       msgs.appendChild(div);
       msgs.scrollTop = msgs.scrollHeight;
     });
+
+    socket.on('chat_clear', () => {
+      document.getElementById('chat-messages').innerHTML = '';
+    });
+
+    socket.on('admin_reset_you', () => {
+      cookies = 0; totalCps = 0;
+      Object.keys(owned).forEach(k => owned[k] = 0);
+      recalcCps(); updateDisplay(); renderUpgrades();
+    });
+
+    socket.on('admin_result', ({ success }) => {
+      if (success) {
+        document.getElementById('admin-login-view').style.display = 'none';
+        document.getElementById('admin-panel-view').style.display = 'block';
+      } else {
+        document.getElementById('admin-error').textContent = 'Wrong password.';
+      }
+    });
+
+    socket.on('admin_playerlist', (list) => {
+      const container = document.getElementById('admin-player-list');
+      container.innerHTML = '';
+      list.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'admin-player-row';
+        row.innerHTML = `
+          <span class="apname ${p.muted ? 'muted' : ''}">${p.name}</span>
+          <span style="color:#888;font-size:0.75rem">${formatNum(p.cookies)} 🍪</span>
+          ${p.muted
+            ? `<button class="btn-unmute" onclick="socket.emit('admin_unmute','${p.name}')">Unmute</button>`
+            : `<button class="btn-mute" onclick="socket.emit('admin_mute','${p.name}')">Mute</button>`}
+          <button class="btn-reset" onclick="socket.emit('admin_reset','${p.name}')">Reset</button>
+        `;
+        container.appendChild(row);
+      });
+    });
   }
 
   // Name changer
@@ -496,6 +610,26 @@
         e.target.blur();
       }
     }
+  });
+
+  // ---- Admin ----
+  document.getElementById('admin-btn').addEventListener('click', () => {
+    const modal = document.getElementById('admin-modal');
+    modal.style.display = 'flex';
+  });
+  document.getElementById('admin-close').addEventListener('click', () => {
+    document.getElementById('admin-modal').style.display = 'none';
+    document.getElementById('admin-error').textContent = '';
+  });
+  document.getElementById('admin-submit').addEventListener('click', () => {
+    const pass = document.getElementById('admin-pass').value;
+    if (socket) socket.emit('admin_login', pass);
+  });
+  document.getElementById('admin-pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('admin-submit').click();
+  });
+  document.getElementById('admin-clearchat-btn').addEventListener('click', () => {
+    if (socket) socket.emit('admin_clearchat');
   });
 
   // Auto-join with a random name

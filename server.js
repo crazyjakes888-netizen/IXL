@@ -10,6 +10,9 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const players = {}; // socketId -> { name, cookies, cps }
+const muted = new Set(); // muted socket IDs
+const ADMIN_PASSWORD = '1648';
+const admins = new Set();
 
 const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','piss','bastard','damn','hell','crap'];
 
@@ -66,6 +69,10 @@ io.on('connection', (socket) => {
 
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
+    if (muted.has(socket.id)) {
+      socket.emit('chat_cooldown', 'muted');
+      return;
+    }
     const now = Date.now();
     if (now - players[socket.id].lastChat < 5000) {
       socket.emit('chat_cooldown', Math.ceil((5000 - (now - players[socket.id].lastChat)) / 1000));
@@ -84,10 +91,61 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Admin login
+  socket.on('admin_login', (password) => {
+    if (password === ADMIN_PASSWORD) {
+      admins.add(socket.id);
+      socket.emit('admin_result', { success: true });
+      socket.emit('admin_playerlist', getPlayerList());
+    } else {
+      socket.emit('admin_result', { success: false });
+    }
+  });
+
+  // Admin actions
+  socket.on('admin_mute', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    if (entry) {
+      muted.add(entry[0]);
+      io.emit('chat', { system: true, msg: `🔇 ${targetName} has been muted by admin.`, time: Date.now() });
+      socket.emit('admin_playerlist', getPlayerList());
+    }
+  });
+
+  socket.on('admin_unmute', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    if (entry) {
+      muted.delete(entry[0]);
+      io.emit('chat', { system: true, msg: `🔊 ${targetName} has been unmuted by admin.`, time: Date.now() });
+      socket.emit('admin_playerlist', getPlayerList());
+    }
+  });
+
+  socket.on('admin_reset', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    if (entry) {
+      players[entry[0]].cookies = 0;
+      players[entry[0]].cps = 0;
+      io.to(entry[0]).emit('admin_reset_you');
+      io.emit('chat', { system: true, msg: `🔄 ${targetName}'s score was reset by admin.`, time: Date.now() });
+    }
+  });
+
+  socket.on('admin_clearchat', () => {
+    if (!admins.has(socket.id)) return;
+    io.emit('chat_clear');
+    io.emit('chat', { system: true, msg: '🧹 Chat was cleared by admin.', time: Date.now() });
+  });
+
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
       delete players[socket.id];
+      admins.delete(socket.id);
+      muted.delete(socket.id);
       io.emit('chat', { system: true, msg: `${name} left the game.`, time: Date.now() });
       io.emit('leaderboard', getLeaderboard());
     }
@@ -98,6 +156,12 @@ io.on('connection', (socket) => {
 setInterval(() => {
   io.emit('leaderboard', getLeaderboard());
 }, 2000);
+
+function getPlayerList() {
+  return Object.entries(players).map(([id, p]) => ({
+    name: p.name, muted: muted.has(id), cookies: p.cookies
+  }));
+}
 
 function getLeaderboard() {
   return Object.values(players)
