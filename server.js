@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,6 +16,16 @@ const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const ADMIN_PASSWORD = '1648';
 const admins = new Set();
+
+const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
+let accounts = {};
+try { accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8')); } catch(e) {}
+function saveAccounts() {
+  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts));
+}
+function hashPw(pw) {
+  return crypto.createHash('sha256').update(String(pw)).digest('hex');
+}
 
 function getIP(socket) {
   return socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address;
@@ -58,6 +70,32 @@ function filterMsg(text) {
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
+
+  socket.on('auth', ({ username, password, isRegister }) => {
+    const uname = String(username).slice(0, 20).replace(/[<>&"']/g, '').trim();
+    if (!uname || !password) { socket.emit('auth_result', { ok: false, msg: 'Invalid input.' }); return; }
+    const hash = hashPw(password);
+    if (isRegister) {
+      if (accounts[uname]) { socket.emit('auth_result', { ok: false, msg: 'Username already taken.' }); return; }
+      accounts[uname] = { hash, cookies: 0, owned: {} };
+      saveAccounts();
+      socket.emit('auth_result', { ok: true, username: uname, cookies: 0, owned: {} });
+    } else {
+      const acc = accounts[uname];
+      if (!acc || acc.hash !== hash) { socket.emit('auth_result', { ok: false, msg: 'Wrong username or password.' }); return; }
+      socket.emit('auth_result', { ok: true, username: uname, cookies: acc.cookies || 0, owned: acc.owned || {} });
+    }
+  });
+
+  socket.on('save_progress', ({ cookies, owned }) => {
+    if (!players[socket.id]) return;
+    const uname = players[socket.id].name;
+    if (accounts[uname]) {
+      accounts[uname].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+      accounts[uname].owned = owned || {};
+      saveAccounts();
+    }
+  });
 
   socket.on('join', (name) => {
     const ip = getIP(socket);
@@ -116,7 +154,7 @@ io.on('connection', (socket) => {
   // Attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
-    const COSTS = { snatch: 500, freeze: 2000, bomb: 6000, curse: 15000, blackhole: 75000, timetheft: 200000 };
+    const COSTS = { freeze: 2000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, confuse: 100000 };
     const cost = COSTS[attackId];
     if (!cost) return;
     if (players[socket.id].cookies < cost) return;
@@ -207,7 +245,7 @@ setInterval(() => {
 
 function getPlayerList() {
   return Object.entries(players).map(([id, p]) => ({
-    name: p.name, muted: muted.has(id), cookies: p.cookies
+    name: p.name, cookies: p.cookies
   }));
 }
 

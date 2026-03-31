@@ -58,15 +58,14 @@
       font-size: 0.85rem; outline: none;
     }
     #attacks {
-      display: flex; flex-direction: row;
-      gap: 8px; width: 100%; overflow-x: auto; padding-bottom: 4px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px; width: 100%;
     }
-    #attacks::-webkit-scrollbar { height: 4px; }
-    #attacks::-webkit-scrollbar-thumb { background: #442222; border-radius: 4px; }
     .attack-btn {
       background: #1e1e1e; border: 1px solid #552222;
       border-radius: 8px; padding: 8px 10px; cursor: pointer;
-      color: #e0e0e0; text-align: left; flex-shrink: 0; min-width: 110px;
+      color: #e0e0e0; text-align: left;
       transition: border-color 0.2s, background 0.2s;
     }
     .attack-btn:hover:not(:disabled) { border-color: #ff4444; background: #2a1515; }
@@ -216,9 +215,12 @@
       font-weight: bold;
       cursor: pointer;
       transition: background 0.2s;
+      margin-bottom: 8px;
     }
 
     #join-box button:hover { background: #555; }
+    #join-box button:last-of-type { margin-bottom: 0; }
+    #auth-error { color: #ff5555; font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
 
     #main {
       display: flex;
@@ -271,16 +273,11 @@
     }
 
     #upgrades {
-      display: flex;
-      flex-direction: row;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       width: 100%;
-      overflow-x: auto;
-      padding-bottom: 4px;
     }
-
-    #upgrades::-webkit-scrollbar { height: 4px; }
-    #upgrades::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
     .upgrade-btn {
       background: #1e1e1e;
@@ -291,8 +288,6 @@
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
-      flex-shrink: 0;
-      min-width: 110px;
     }
 
     .upgrade-btn:hover:not(:disabled) {
@@ -312,7 +307,8 @@
 
     /* === RIGHT PANEL === */
     #right-panel {
-      width: 240px;
+      width: 270px;
+      min-width: 270px;
       display: flex;
       flex-direction: column;
       border-left: 2px solid #2a2a2a;
@@ -409,6 +405,7 @@
       cursor: pointer;
       font-weight: bold;
       font-size: 0.85rem;
+      flex-shrink: 0;
     }
 
     #chat-send:hover { background: #555; }
@@ -436,8 +433,11 @@
 <div id="join-screen">
   <div id="join-box">
     <h2>🍪 Cookie Chat</h2>
-    <input id="name-input" type="text" placeholder="Enter your name..." maxlength="20" />
-    <button id="join-btn">Join Game</button>
+    <input id="auth-username" type="text" placeholder="Username..." maxlength="20" autocomplete="username" />
+    <input id="auth-password" type="password" placeholder="Password..." maxlength="50" autocomplete="current-password" />
+    <button id="login-btn">Login</button>
+    <button id="register-btn" style="background:#333;">Register New Account</button>
+    <div id="auth-error"></div>
   </div>
 </div>
 
@@ -506,29 +506,35 @@
   let socket;
 
   const UPGRADES = [
-    { id: 'cursor',    name: '🖱️ Cursor',       desc: '+1 click power',     baseCost: 15,      clickPower: 1, cps: 0 },
-    { id: 'grandma',   name: '👵 Grandma',       desc: '+1 cookie/sec',      baseCost: 100,     clickPower: 0, cps: 1 },
-    { id: 'farm',      name: '🌾 Cookie Farm',   desc: '+5 cookies/sec',     baseCost: 500,     clickPower: 0, cps: 5 },
-    { id: 'mine',      name: '⛏️ Mine',          desc: '+10 cookies/sec',    baseCost: 2000,    clickPower: 0, cps: 10 },
-    { id: 'factory',   name: '🏭 Factory',       desc: '+20 cookies/sec',    baseCost: 8000,    clickPower: 0, cps: 20 },
-    { id: 'bank',      name: '🏦 Cookie Bank',   desc: '+50 cookies/sec',    baseCost: 20000,   clickPower: 0, cps: 50 },
-    { id: 'temple',    name: '⛩️ Temple',        desc: '+100 cookies/sec',   baseCost: 75000,   clickPower: 0, cps: 100 },
-    { id: 'wizard',    name: '🧙 Wizard Tower',  desc: '+200 cookies/sec',   baseCost: 200000,  clickPower: 0, cps: 200 },
-    { id: 'shipment',  name: '🚀 Shipment',      desc: '+500 cookies/sec',   baseCost: 500000,  clickPower: 0, cps: 500 },
-    { id: 'alchemy',   name: '⚗️ Alchemy Lab',   desc: '+1K cookies/sec',    baseCost: 1500000, clickPower: 0, cps: 1000 },
-    { id: 'portal',    name: '🌀 Portal',        desc: '+5K cookies/sec',    baseCost: 5000000, clickPower: 0, cps: 5000 },
-    { id: 'timemachine',name: '⏰ Time Machine', desc: '+10K cookies/sec',   baseCost: 15000000,clickPower: 0, cps: 10000 },
-    { id: 'megaclick', name: '👆 Mega Click',    desc: '+10 click power',    baseCost: 50000,   clickPower: 10, cps: 0 },
-    { id: 'ultraclick',name: '⚡ Ultra Click',   desc: '+50 click power',    baseCost: 500000,  clickPower: 50, cps: 0 },
+    { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
+    { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
+    { id: 'farm',       name: '🌾 Farm',           desc: '+5/sec',            baseCost: 500,      clickPower: 0,    cps: 5 },
+    { id: 'mine',       name: '⛏️ Mine',           desc: '+10/sec',           baseCost: 2000,     clickPower: 0,    cps: 10 },
+    { id: 'factory',    name: '🏭 Factory',        desc: '+20/sec',           baseCost: 8000,     clickPower: 0,    cps: 20 },
+    { id: 'bank',       name: '🏦 Bank',           desc: '+50/sec',           baseCost: 20000,    clickPower: 0,    cps: 50 },
+    { id: 'temple',     name: '⛩️ Temple',         desc: '+100/sec',          baseCost: 75000,    clickPower: 0,    cps: 100 },
+    { id: 'wizard',     name: '🧙 Wizard',         desc: '+200/sec',          baseCost: 200000,   clickPower: 0,    cps: 200 },
+    { id: 'shipment',   name: '🚀 Shipment',       desc: '+500/sec',          baseCost: 500000,   clickPower: 0,    cps: 500 },
+    { id: 'alchemy',    name: '⚗️ Alchemy',        desc: '+1K/sec',           baseCost: 1500000,  clickPower: 0,    cps: 1000 },
+    { id: 'portal',     name: '🌀 Portal',         desc: '+5K/sec',           baseCost: 5000000,  clickPower: 0,    cps: 5000 },
+    { id: 'timemachine',name: '⏰ Time Machine',   desc: '+10K/sec',          baseCost: 15000000, clickPower: 0,    cps: 10000 },
+    { id: 'antimatter', name: '⚛️ Antimatter',     desc: '+50K/sec',          baseCost: 75000000, clickPower: 0,    cps: 50000 },
+    { id: 'prism',      name: '🔮 Prism',          desc: '+200K/sec',         baseCost: 3e8,      clickPower: 0,    cps: 200000 },
+    { id: 'chancemaker',name: '🎲 Chancemaker',    desc: '+1M/sec',           baseCost: 1e9,      clickPower: 0,    cps: 1000000 },
+    { id: 'fractal',    name: '🌌 Fractal Engine', desc: '+5M/sec',           baseCost: 5e9,      clickPower: 0,    cps: 5000000 },
+    { id: 'megaclick',  name: '👆 Mega Click',     desc: '+10 click',         baseCost: 50000,    clickPower: 10,   cps: 0 },
+    { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+50 click',         baseCost: 500000,   clickPower: 50,   cps: 0 },
+    { id: 'godclick',   name: '✨ God Click',      desc: '+200 click',        baseCost: 5000000,  clickPower: 200,  cps: 0 },
+    { id: 'omnclick',   name: '💥 Omni Click',     desc: '+1000 click',       baseCost: 50000000, clickPower: 1000, cps: 0 },
   ];
 
   const ATTACKS = [
-    { id: 'snatch',    name: '🤏 Cookie Snatch', desc: 'Steal 10% of their cookies', cost: 500,     effect: 'snatch'  },
-    { id: 'freeze',    name: '❄️ Freeze',         desc: 'Stop their CPS for 12s',     cost: 2000,    effect: 'freeze'  },
-    { id: 'bomb',      name: '💣 Cookie Bomb',    desc: 'Destroy 25% of their cookies',cost: 6000,   effect: 'bomb'    },
-    { id: 'curse',     name: '☠️ Curse',          desc: 'Drain -20/sec for 20s',       cost: 15000,  effect: 'curse'   },
-    { id: 'blackhole', name: '🌑 Black Hole',     desc: 'Steal 50% of their cookies',  cost: 75000,  effect: 'blackhole'},
-    { id: 'timetheft', name: '⏳ Time Theft',     desc: 'Rewind their CPS for 30s',    cost: 200000, effect: 'timetheft'},
+    { id: 'freeze',    name: '❄️ Freeze',        desc: 'Stop CPS for 12s',       cost: 2000    },
+    { id: 'curse',     name: '☠️ Curse',         desc: '-20/sec for 20s',        cost: 15000   },
+    { id: 'virus',     name: '🦠 Cookie Virus',  desc: 'Halve CPS for 25s',      cost: 30000   },
+    { id: 'drain',     name: '🕳️ Drain',         desc: '-100/sec for 15s',       cost: 50000   },
+    { id: 'timetheft', name: '⏳ Time Theft',    desc: 'Reverse CPS for 30s',    cost: 200000  },
+    { id: 'confuse',   name: '😵 Confuse',       desc: 'Lose 3 random upgrades', cost: 100000  },
   ];
 
   const activeDebuffs = {}; // { type: clearTimeout }
@@ -685,16 +691,27 @@
     if (socket && myName) {
       socket.emit('update_score', { cookies: Math.floor(cookies), cps: totalCps });
     }
-    // Save progress every tick
-    localStorage.setItem('cookiechat_cookies', Math.floor(cookies));
-    localStorage.setItem('cookiechat_owned', JSON.stringify(owned));
   }, 50);
 
+  // Save progress to server every 5 seconds
+  setInterval(() => {
+    if (socket && myName) {
+      socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
+    }
+  }, 5000);
+
   // ---- Join ----
-  function startGame(name) {
+  function startGame(name, existingSocket) {
     myName = name;
     document.getElementById('join-screen').style.display = 'none';
-    socket = io();
+    socket = existingSocket;
+
+    renderUpgrades();
+    renderAttacks();
+    updateDisplay();
+
+    socket.emit('join', name);
+    document.getElementById('name-changer').value = name;
 
     socket.on('connect', () => {
       socket.emit('join', name);
@@ -749,33 +766,38 @@
 
     // Attack received
     socket.on('attack_hit', ({ attackId, attackerName }) => {
-      const DURATION = { freeze: 12000, curse: 20000, timetheft: 30000 };
-      if (attackId === 'snatch') {
-        const lost = Math.floor(cookies * 0.10);
-        cookies = Math.max(0, cookies - lost);
-        applyDebuff('snatch', 3000, `🤏 Snatched! -${formatNum(lost)}`);
-      } else if (attackId === 'bomb') {
-        const lost = Math.floor(cookies * 0.25);
-        cookies = Math.max(0, cookies - lost);
-        applyDebuff('bomb', 3000, `💣 Bombed! -${formatNum(lost)}`);
-      } else if (attackId === 'blackhole') {
-        const lost = Math.floor(cookies * 0.50);
-        cookies = Math.max(0, cookies - lost);
-        applyDebuff('blackhole', 3000, `🌑 Black Hole! -${formatNum(lost)}`);
-      } else if (attackId === 'freeze') {
+      if (attackId === 'freeze') {
         const prev = totalCps;
         totalCps = 0;
-        applyDebuff('freeze', DURATION.freeze, '❄️ Frozen! CPS=0');
-        setTimeout(() => { totalCps = prev; }, DURATION.freeze);
+        applyDebuff('freeze', 12000, '❄️ Frozen! CPS=0');
+        setTimeout(() => { totalCps = prev; }, 12000);
       } else if (attackId === 'curse') {
         drainAmount = 20;
-        applyDebuff('curse', DURATION.curse, '☠️ Cursed! -20/sec');
-        setTimeout(() => { drainAmount = 0; }, DURATION.curse);
+        applyDebuff('curse', 20000, '☠️ Cursed! -20/sec');
+        setTimeout(() => { drainAmount = 0; }, 20000);
+      } else if (attackId === 'virus') {
+        const prev = totalCps;
+        totalCps = Math.floor(prev / 2);
+        applyDebuff('virus', 25000, '🦠 Virus! CPS halved');
+        setTimeout(() => { totalCps = prev; }, 25000);
+      } else if (attackId === 'drain') {
+        drainAmount = (drainAmount || 0) + 100;
+        applyDebuff('drain', 15000, '🕳️ Drained! -100/sec');
+        setTimeout(() => { drainAmount = Math.max(0, drainAmount - 100); }, 15000);
       } else if (attackId === 'timetheft') {
         const prev = totalCps;
         totalCps = -prev;
-        applyDebuff('timetheft', DURATION.timetheft, '⏳ Time Theft! CPS reversed');
-        setTimeout(() => { totalCps = prev; }, DURATION.timetheft);
+        applyDebuff('timetheft', 30000, '⏳ Time Theft! CPS reversed');
+        setTimeout(() => { totalCps = prev; }, 30000);
+      } else if (attackId === 'confuse') {
+        const ids = Object.keys(owned).filter(k => owned[k] > 0);
+        for (let i = 0; i < Math.min(3, ids.length); i++) {
+          const pick = ids.splice(Math.floor(Math.random() * ids.length), 1)[0];
+          owned[pick] = Math.max(0, owned[pick] - 1);
+        }
+        recalcCps();
+        renderUpgrades();
+        applyDebuff('confuse', 3000, '😵 Confused! Lost 3 upgrades');
       }
       updateDisplay();
       // Show in chat
@@ -907,13 +929,34 @@
     }
   });
 
-  // Use saved name or generate a random one
-  const adjectives = ['Fast','Cool','Epic','Wild','Bold','Sly','Keen','Brave','Swift','Spicy'];
-  const nouns = ['Cookie','Baker','Clicker','Muncher','Chomper','Crumble','Snacker','Nibbler'];
-  const savedName = localStorage.getItem('cookiechat_name');
-  const startName = savedName || adjectives[Math.floor(Math.random()*adjectives.length)] + nouns[Math.floor(Math.random()*nouns.length)] + Math.floor(Math.random()*99);
-  if (!savedName) localStorage.setItem('cookiechat_name', startName);
-  startGame(startName);
+  // ---- Auth ----
+  const socket0 = io();
+
+  function doAuth(isRegister) {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    if (!username) { errEl.textContent = 'Enter a username.'; return; }
+    if (!password) { errEl.textContent = 'Enter a password.'; return; }
+    errEl.textContent = '';
+    socket0.emit('auth', { username, password, isRegister });
+  }
+
+  document.getElementById('login-btn').addEventListener('click', () => doAuth(false));
+  document.getElementById('register-btn').addEventListener('click', () => doAuth(true));
+  document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(false); });
+
+  socket0.on('auth_result', ({ ok, msg, username, cookies: savedCookies, owned: savedOwned }) => {
+    if (!ok) {
+      document.getElementById('auth-error').textContent = msg;
+      return;
+    }
+    cookies = savedCookies || 0;
+    const so = savedOwned || {};
+    Object.keys(so).forEach(k => { if (owned[k] !== undefined) owned[k] = so[k]; });
+    recalcCps();
+    startGame(username, socket0);
+  });
 
   // ---- Chat send ----
   function sendChat() {
@@ -930,14 +973,7 @@
     if (e.key === 'Enter') sendChat();
   });
 
-  // ---- Load saved progress ----
-  const savedCookies = parseInt(localStorage.getItem('cookiechat_cookies')) || 0;
-  const savedOwned = JSON.parse(localStorage.getItem('cookiechat_owned') || '{}');
-  cookies = savedCookies;
-  Object.keys(savedOwned).forEach(k => { if (owned[k] !== undefined) owned[k] = savedOwned[k]; });
-  recalcCps();
-
-  // ---- Init ----
+  // ---- Init (before login) ----
   renderUpgrades();
   renderAttacks();
   updateDisplay();
