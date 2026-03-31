@@ -678,6 +678,9 @@
     if (socket && myName) {
       socket.emit('update_score', { cookies: Math.floor(cookies), cps: totalCps });
     }
+    // Save progress every tick
+    localStorage.setItem('cookiechat_cookies', Math.floor(cookies));
+    localStorage.setItem('cookiechat_owned', JSON.stringify(owned));
   }, 50);
 
   // ---- Join ----
@@ -809,6 +812,7 @@
       const newName = e.target.value.trim();
       if (newName && socket) {
         myName = newName;
+        localStorage.setItem('cookiechat_name', newName);
         socket.emit('join', newName);
         e.target.blur();
       }
@@ -896,11 +900,13 @@
     }
   });
 
-  // Auto-join with a random name
+  // Use saved name or generate a random one
   const adjectives = ['Fast','Cool','Epic','Wild','Bold','Sly','Keen','Brave','Swift','Spicy'];
   const nouns = ['Cookie','Baker','Clicker','Muncher','Chomper','Crumble','Snacker','Nibbler'];
-  const randomName = adjectives[Math.floor(Math.random()*adjectives.length)] + nouns[Math.floor(Math.random()*nouns.length)] + Math.floor(Math.random()*99);
-  startGame(randomName);
+  const savedName = localStorage.getItem('cookiechat_name');
+  const startName = savedName || adjectives[Math.floor(Math.random()*adjectives.length)] + nouns[Math.floor(Math.random()*nouns.length)] + Math.floor(Math.random()*99);
+  if (!savedName) localStorage.setItem('cookiechat_name', startName);
+  startGame(startName);
 
   // ---- Chat send ----
   function sendChat() {
@@ -916,6 +922,13 @@
   document.getElementById('chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendChat();
   });
+
+  // ---- Load saved progress ----
+  const savedCookies = parseInt(localStorage.getItem('cookiechat_cookies')) || 0;
+  const savedOwned = JSON.parse(localStorage.getItem('cookiechat_owned') || '{}');
+  cookies = savedCookies;
+  Object.keys(savedOwned).forEach(k => { if (owned[k] !== undefined) owned[k] = savedOwned[k]; });
+  recalcCps();
 
   // ---- Init ----
   renderUpgrades();
