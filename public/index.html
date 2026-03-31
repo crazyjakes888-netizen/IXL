@@ -28,6 +28,7 @@
       letter-spacing: 2px;
     }
 
+    header { position: relative; }
     #admin-btn {
       position: absolute;
       right: 16px;
@@ -42,6 +43,51 @@
       font-size: 0.8rem;
     }
     #admin-btn:hover { background: #444; }
+
+    /* Attacks */
+    #attacks-title {
+      font-size: 1rem; color: #aaaaaa;
+      text-transform: uppercase; letter-spacing: 1px; margin-top: 8px;
+    }
+    #attack-target-row {
+      display: flex; align-items: center; gap: 8px; width: 100%; max-width: 420px;
+    }
+    #attack-target {
+      flex: 1; padding: 5px 8px; border-radius: 6px;
+      border: 1px solid #333; background: #1e1e1e; color: #e0e0e0;
+      font-size: 0.85rem; outline: none;
+    }
+    #attacks {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; width: 100%; max-width: 420px;
+    }
+    .attack-btn {
+      background: #1e1e1e; border: 1px solid #552222;
+      border-radius: 8px; padding: 10px 12px; cursor: pointer;
+      color: #e0e0e0; text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .attack-btn:hover:not(:disabled) { border-color: #ff4444; background: #2a1515; }
+    .attack-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .attack-btn .atk-name { font-weight: bold; font-size: 0.9rem; }
+    .attack-btn .atk-desc { font-size: 0.75rem; color: #ff9999; margin-top: 2px; }
+    .attack-btn .atk-cost { font-size: 0.8rem; color: #ffaaaa; margin-top: 4px; }
+
+    /* Debuffs */
+    #debuffs-display {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      max-width: 420px; min-height: 0;
+    }
+    .debuff-chip {
+      background: #2a1515; border: 1px solid #ff4444;
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 0.75rem; color: #ff9999;
+      animation: pulse-red 1s infinite alternate;
+    }
+    @keyframes pulse-red {
+      from { border-color: #ff4444; }
+      to   { border-color: #ff000088; }
+    }
 
     #admin-box {
       background: #1e1e1e;
@@ -390,6 +436,13 @@
     <button id="cookie-btn" title="Click me!">🍪</button>
     <div id="upgrades-title">Upgrades</div>
     <div id="upgrades"></div>
+    <div id="debuffs-display"></div>
+    <div id="attacks-title">⚔️ Attacks</div>
+    <div id="attack-target-row">
+      <span style="color:#aaa;font-size:0.8rem;">Target:</span>
+      <select id="attack-target"><option value="">— pick player —</option></select>
+    </div>
+    <div id="attacks"></div>
   </div>
 
   <div id="right-panel">
@@ -432,6 +485,17 @@
     { id: 'megaclick', name: '👆 Mega Click',    desc: '+10 click power',    baseCost: 50000,   clickPower: 10, cps: 0 },
     { id: 'ultraclick',name: '⚡ Ultra Click',   desc: '+50 click power',    baseCost: 500000,  clickPower: 50, cps: 0 },
   ];
+
+  const ATTACKS = [
+    { id: 'snatch',    name: '🤏 Cookie Snatch', desc: 'Steal 10% of their cookies', cost: 500,     effect: 'snatch'  },
+    { id: 'freeze',    name: '❄️ Freeze',         desc: 'Stop their CPS for 12s',     cost: 2000,    effect: 'freeze'  },
+    { id: 'bomb',      name: '💣 Cookie Bomb',    desc: 'Destroy 25% of their cookies',cost: 6000,   effect: 'bomb'    },
+    { id: 'curse',     name: '☠️ Curse',          desc: 'Drain -20/sec for 20s',       cost: 15000,  effect: 'curse'   },
+    { id: 'blackhole', name: '🌑 Black Hole',     desc: 'Steal 50% of their cookies',  cost: 75000,  effect: 'blackhole'},
+    { id: 'timetheft', name: '⏳ Time Theft',     desc: 'Rewind their CPS for 30s',    cost: 200000, effect: 'timetheft'},
+  ];
+
+  const activeDebuffs = {}; // { type: clearTimeout }
 
   const owned = {};
   UPGRADES.forEach(u => owned[u.id] = 0);
@@ -484,6 +548,67 @@
     });
   }
 
+  function renderAttacks() {
+    const container = document.getElementById('attacks');
+    container.innerHTML = '';
+    ATTACKS.forEach(atk => {
+      const btn = document.createElement('button');
+      btn.className = 'attack-btn';
+      btn.disabled = cookies < atk.cost;
+      btn.innerHTML = `
+        <div class="atk-name">${atk.name}</div>
+        <div class="atk-desc">${atk.desc}</div>
+        <div class="atk-cost">🍪 ${formatNum(atk.cost)}</div>
+      `;
+      btn.addEventListener('click', () => {
+        const target = document.getElementById('attack-target').value;
+        if (!target) { alert('Pick a target first!'); return; }
+        if (target === myName) { alert("You can't attack yourself!"); return; }
+        if (cookies >= atk.cost && socket) {
+          cookies -= atk.cost;
+          socket.emit('attack', { attackId: atk.id, targetName: target });
+          updateDisplay();
+          renderAttacks();
+        }
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function updateTargetList(players) {
+    const sel = document.getElementById('attack-target');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— pick player —</option>';
+    players.forEach(p => {
+      if (p.name !== myName) {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name;
+        if (p.name === current) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    });
+  }
+
+  function applyDebuff(type, duration, label) {
+    if (activeDebuffs[type]) clearTimeout(activeDebuffs[type].timer);
+    const display = document.getElementById('debuffs-display');
+    let chip = document.getElementById('debuff-' + type);
+    if (!chip) {
+      chip = document.createElement('div');
+      chip.className = 'debuff-chip';
+      chip.id = 'debuff-' + type;
+      display.appendChild(chip);
+    }
+    chip.textContent = label;
+    activeDebuffs[type] = {
+      timer: setTimeout(() => {
+        chip.remove();
+        delete activeDebuffs[type];
+      }, duration)
+    };
+  }
+
   function updateDisplay() {
     document.getElementById('cookie-count').textContent = formatNum(cookies) + ' cookies';
     document.getElementById('cps-display').textContent = formatNum(totalCps) + ' cookies/sec';
@@ -507,11 +632,19 @@
   });
 
   // ---- Game loop ----
+  let drainAmount = 0; // active curse drain per tick
   setInterval(() => {
-    if (totalCps > 0) {
-      cookies += totalCps / 20;
+    let gained = totalCps / 20;
+    if (drainAmount > 0) gained -= drainAmount / 20;
+    if (gained !== 0) {
+      cookies = Math.max(0, cookies + gained);
       updateDisplay();
       renderUpgrades();
+      renderAttacks();
+    } else if (totalCps > 0) {
+      updateDisplay();
+      renderUpgrades();
+      renderAttacks();
     }
     if (socket && myName) {
       socket.emit('update_score', { cookies: Math.floor(cookies), cps: totalCps });
@@ -541,6 +674,7 @@
         `;
         list.appendChild(li);
       });
+      updateTargetList(lb);
     });
 
     socket.on('chat_cooldown', (secs) => {
@@ -564,6 +698,46 @@
 
     socket.on('chat_clear', () => {
       document.getElementById('chat-messages').innerHTML = '';
+    });
+
+    // Attack received
+    socket.on('attack_hit', ({ attackId, attackerName }) => {
+      const DURATION = { freeze: 12000, curse: 20000, timetheft: 30000 };
+      if (attackId === 'snatch') {
+        const lost = Math.floor(cookies * 0.10);
+        cookies = Math.max(0, cookies - lost);
+        applyDebuff('snatch', 3000, `🤏 Snatched! -${formatNum(lost)}`);
+      } else if (attackId === 'bomb') {
+        const lost = Math.floor(cookies * 0.25);
+        cookies = Math.max(0, cookies - lost);
+        applyDebuff('bomb', 3000, `💣 Bombed! -${formatNum(lost)}`);
+      } else if (attackId === 'blackhole') {
+        const lost = Math.floor(cookies * 0.50);
+        cookies = Math.max(0, cookies - lost);
+        applyDebuff('blackhole', 3000, `🌑 Black Hole! -${formatNum(lost)}`);
+      } else if (attackId === 'freeze') {
+        const prev = totalCps;
+        totalCps = 0;
+        applyDebuff('freeze', DURATION.freeze, '❄️ Frozen! CPS=0');
+        setTimeout(() => { totalCps = prev; }, DURATION.freeze);
+      } else if (attackId === 'curse') {
+        drainAmount = 20;
+        applyDebuff('curse', DURATION.curse, '☠️ Cursed! -20/sec');
+        setTimeout(() => { drainAmount = 0; }, DURATION.curse);
+      } else if (attackId === 'timetheft') {
+        const prev = totalCps;
+        totalCps = -prev;
+        applyDebuff('timetheft', DURATION.timetheft, '⏳ Time Theft! CPS reversed');
+        setTimeout(() => { totalCps = prev; }, DURATION.timetheft);
+      }
+      updateDisplay();
+      // Show in chat
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      div.textContent = `⚔️ ${attackerName} attacked you with ${attackId}!`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
     });
 
     socket.on('admin_reset_you', () => {
@@ -655,6 +829,7 @@
 
   // ---- Init ----
   renderUpgrades();
+  renderAttacks();
   updateDisplay();
 </script>
 </body>

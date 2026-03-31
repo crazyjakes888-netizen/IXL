@@ -91,6 +91,24 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Attack
+  socket.on('attack', ({ attackId, targetName }) => {
+    if (!players[socket.id]) return;
+    const COSTS = { snatch: 500, freeze: 2000, bomb: 6000, curse: 15000, blackhole: 75000, timetheft: 200000 };
+    const cost = COSTS[attackId];
+    if (!cost) return;
+    if (players[socket.id].cookies < cost) return;
+    const target = Object.entries(players).find(([,p]) => p.name === targetName);
+    if (!target) return;
+    players[socket.id].cookies -= cost;
+    io.to(target[0]).emit('attack_hit', { attackId, attackerName: players[socket.id].name });
+    io.emit('chat', {
+      system: true,
+      msg: `⚔️ ${players[socket.id].name} used ${attackId} on ${targetName}!`,
+      time: Date.now()
+    });
+  });
+
   // Admin login
   socket.on('admin_login', (password) => {
     if (password === ADMIN_PASSWORD) {
