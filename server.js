@@ -11,14 +11,32 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const players = {}; // socketId -> { name, cookies, cps }
 
-const BAD_WORDS = ['fuck','shit','ass','bitch','damn','crap','piss','dick','cock','pussy','bastard','hell','cunt','fag','slut','whore','nigger','nigga','retard','kill yourself','kys'];
+const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','piss','bastard','damn','hell','crap'];
+
+// Normalize leetspeak and common substitutions for comparison only
+function normalize(str) {
+  return str.toLowerCase()
+    .replace(/[@4]/g,'a')
+    .replace(/[38]/g,'e')
+    .replace(/[1!|]/g,'i')
+    .replace(/[0]/g,'o')
+    .replace(/[$5]/g,'s')
+    .replace(/[7]/g,'t')
+    .replace(/[xX\*]/g,'x')
+    .replace(/[^a-z]/g,''); // strip non-letters for comparison
+}
+
 function filterMsg(text) {
-  let out = text;
-  BAD_WORDS.forEach(w => {
-    const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
-    out = out.replace(re, '*'.repeat(w.length));
+  // Split into words, check each normalized word against bad words list
+  return text.replace(/\S+/g, word => {
+    const norm = normalize(word);
+    for (const bad of BAD_WORDS) {
+      if (norm === bad || norm.includes(bad)) {
+        return '*'.repeat(word.length);
+      }
+    }
+    return word;
   });
-  return out;
 }
 
 io.on('connection', (socket) => {
