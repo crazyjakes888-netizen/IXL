@@ -14,26 +14,26 @@ const players = {}; // socketId -> { name, cookies, cps }
 const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','piss','bastard','damn','hell','crap'];
 
 // Normalize leetspeak and common substitutions for comparison only
-function normalize(str) {
+function normalize(str, parenAs = 'i') {
   return str.toLowerCase()
     .replace(/[@4]/g,'a')
     .replace(/[38]/g,'e')
-    .replace(/[1!|(]/g,'i')
+    .replace(/[1!|]/g,'i')
+    .replace(/\(/g, parenAs)
     .replace(/[0]/g,'o')
     .replace(/[$5]/g,'s')
     .replace(/[7]/g,'t')
-    .replace(/[xX\*]/g,'x')
-    .replace(/[^a-z]/g,''); // strip non-letters for comparison
+    .replace(/[^a-z]/g,'');
+}
+
+function isBad(norm) {
+  return BAD_WORDS.some(bad => norm === bad || norm.includes(bad));
 }
 
 function filterMsg(text) {
-  // Split into words, check each normalized word against bad words list
   return text.replace(/\S+/g, word => {
-    const norm = normalize(word);
-    for (const bad of BAD_WORDS) {
-      if (norm === bad || norm.includes(bad)) {
-        return '*'.repeat(word.length);
-      }
+    if (isBad(normalize(word, 'i')) || isBad(normalize(word, 'c'))) {
+      return '*'.repeat(word.length);
     }
     return word;
   });
@@ -44,7 +44,7 @@ io.on('connection', (socket) => {
 
   socket.on('join', (name) => {
     const safeName = String(name).slice(0, 20).replace(/[<>&"]/g, '') || 'Anonymous';
-    players[socket.id] = { name: safeName, cookies: 0, cps: 0 };
+    players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0 };
 
     socket.emit('joined', { id: socket.id, name: safeName });
 
@@ -66,6 +66,12 @@ io.on('connection', (socket) => {
 
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
+    const now = Date.now();
+    if (now - players[socket.id].lastChat < 5000) {
+      socket.emit('chat_cooldown', Math.ceil((5000 - (now - players[socket.id].lastChat)) / 1000));
+      return;
+    }
+    players[socket.id].lastChat = now;
     const safeMsg = String(msg).slice(0, 200).replace(/[<>&"]/g, (c) =>
       ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])
     );

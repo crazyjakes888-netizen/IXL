@@ -466,6 +466,12 @@
       });
     });
 
+    socket.on('chat_cooldown', (secs) => {
+      const input = document.getElementById('chat-input');
+      input.placeholder = `Wait ${secs}s...`;
+      setTimeout(() => { input.placeholder = 'Say something...'; }, secs * 1000);
+    });
+
     socket.on('chat', ({ system, name, msg, time }) => {
       const msgs = document.getElementById('chat-messages');
       const div = document.createElement('div');
