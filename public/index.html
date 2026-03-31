@@ -28,6 +28,18 @@
       letter-spacing: 2px;
     }
 
+    #name-changer {
+      font-size: 0.9rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #c87820;
+      background: #2a0e00;
+      color: #f5deb3;
+      outline: none;
+      width: 140px;
+      vertical-align: middle;
+    }
+
     #join-screen {
       position: fixed;
       inset: 0;
@@ -292,7 +304,7 @@
   </div>
 </div>
 
-<header>🍪 COOKIE CHAT</header>
+<header>🍪 COOKIE CHAT &nbsp;|&nbsp; <input id="name-changer" type="text" maxlength="20" placeholder="Your name..." title="Press Enter to change name" /></header>
 
 <div id="main">
   <div id="game-panel">
@@ -429,6 +441,7 @@
 
     socket.on('connect', () => {
       socket.emit('join', name);
+      document.getElementById('name-changer').value = name;
     });
 
     socket.on('leaderboard', (lb) => {
@@ -458,6 +471,18 @@
       msgs.scrollTop = msgs.scrollHeight;
     });
   }
+
+  // Name changer
+  document.getElementById('name-changer').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const newName = e.target.value.trim();
+      if (newName && socket) {
+        myName = newName;
+        socket.emit('join', newName);
+        e.target.blur();
+      }
+    }
+  });
 
   // Auto-join with a random name
   const adjectives = ['Fast','Cool','Epic','Wild','Bold','Sly','Keen','Brave','Swift','Spicy'];
