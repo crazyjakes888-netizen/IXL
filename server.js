@@ -9,10 +9,24 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const players = {}; // socketId -> { name, cookies, cps }
-const muted = new Set(); // muted socket IDs
+const players = {};
+const mutedIPs = {}; // ip -> expiry or 'perm'
+const bannedIPs = {}; // ip -> expiry or 'perm'
 const ADMIN_PASSWORD = '1648';
 const admins = new Set();
+
+function getIP(socket) {
+  return socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address;
+}
+
+function isBlocked(ip, store) {
+  const val = store[ip];
+  if (!val) return false;
+  if (val === 'perm') return true;
+  if (Date.now() < val) return true;
+  delete store[ip];
+  return false;
+}
 
 const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','piss','bastard','damn','hell','crap'];
 
@@ -46,8 +60,15 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   socket.on('join', (name) => {
+    const ip = getIP(socket);
+    if (isBlocked(ip, bannedIPs)) {
+      const val = bannedIPs[ip];
+      socket.emit('banned', val === 'perm' ? 'permanent' : Math.ceil((val - Date.now()) / 1000) + 's');
+      socket.disconnect();
+      return;
+    }
     const safeName = String(name).slice(0, 20).replace(/[<>&"]/g, '') || 'Anonymous';
-    players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0 };
+    players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, ip };
 
     socket.emit('joined', { id: socket.id, name: safeName });
 
@@ -69,7 +90,8 @@ io.on('connection', (socket) => {
 
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
-    if (muted.has(socket.id)) {
+    const ip = players[socket.id]?.ip || getIP(socket);
+    if (isBlocked(ip, mutedIPs)) {
       socket.emit('chat_cooldown', 'muted');
       return;
     }
@@ -124,38 +146,47 @@ io.on('connection', (socket) => {
   socket.on('admin_mute', (targetName) => {
     if (!admins.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name === targetName);
-    if (entry) {
-      muted.add(entry[0]);
-      io.emit('chat', { system: true, msg: `🔇 ${targetName} has been muted by admin.`, time: Date.now() });
-      socket.emit('admin_playerlist', getPlayerList());
-    }
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
+    mutedIPs[entry[1].ip] = 'perm';
+    io.emit('chat', { system: true, msg: `🔇 ${targetName} was muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Muted ${targetName} (IP-locked).` });
   });
 
   socket.on('admin_unmute', (targetName) => {
     if (!admins.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name === targetName);
-    if (entry) {
-      muted.delete(entry[0]);
-      io.emit('chat', { system: true, msg: `🔊 ${targetName} has been unmuted by admin.`, time: Date.now() });
-      socket.emit('admin_playerlist', getPlayerList());
-    }
-  });
-
-  socket.on('admin_reset', (targetName) => {
-    if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
-    if (entry) {
-      players[entry[0]].cookies = 0;
-      players[entry[0]].cps = 0;
-      io.to(entry[0]).emit('admin_reset_you');
-      io.emit('chat', { system: true, msg: `🔄 ${targetName}'s score was reset by admin.`, time: Date.now() });
-    }
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
+    delete mutedIPs[entry[1].ip];
+    io.emit('chat', { system: true, msg: `🔊 ${targetName} was unmuted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Unmuted ${targetName}.` });
   });
 
   socket.on('admin_clearchat', () => {
     if (!admins.has(socket.id)) return;
     io.emit('chat_clear');
-    io.emit('chat', { system: true, msg: '🧹 Chat was cleared by admin.', time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: 'Chat cleared.' });
+  });
+
+  socket.on('admin_timeout', ({ name, seconds }) => {
+    if (!admins.has(socket.id)) return;
+    const secs = Math.max(1, parseInt(seconds) || 30);
+    const entry = Object.entries(players).find(([,p]) => p.name === name);
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
+    mutedIPs[entry[1].ip] = Date.now() + secs * 1000;
+    io.emit('chat', { system: true, msg: `⏱️ ${name} timed out for ${secs}s.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Timed out ${name} for ${secs}s.` });
+  });
+
+  socket.on('admin_ban', ({ name, duration }) => {
+    if (!admins.has(socket.id)) return;
+    const isPerm = duration === 'perm';
+    const entry = Object.entries(players).find(([,p]) => p.name === name);
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
+    bannedIPs[entry[1].ip] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
+    io.to(entry[0]).emit('banned', isPerm ? 'permanent' : duration + 's');
+    const msg = isPerm ? `🔨 ${name} permanently banned.` : `🔨 ${name} banned for ${duration}s.`;
+    io.emit('chat', { system: true, msg, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg });
   });
 
   socket.on('disconnect', () => {
@@ -163,7 +194,6 @@ io.on('connection', (socket) => {
       const name = players[socket.id].name;
       delete players[socket.id];
       admins.delete(socket.id);
-      muted.delete(socket.id);
       io.emit('chat', { system: true, msg: `${name} left the game.`, time: Date.now() });
       io.emit('leaderboard', getLeaderboard());
     }

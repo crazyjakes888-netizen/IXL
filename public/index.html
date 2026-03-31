@@ -89,43 +89,74 @@
       to   { border-color: #ff000088; }
     }
 
-    #admin-box {
-      background: #1e1e1e;
-      border: 2px solid #444;
-      border-radius: 12px;
-      padding: 24px;
-      min-width: 320px;
-      max-width: 420px;
-      width: 90%;
+    /* Admin console */
+    #admin-console {
+      position: fixed;
+      bottom: 40px;
+      right: 20px;
+      width: 420px;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 10px;
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 8px 32px #000a;
+      font-family: 'Consolas', 'Courier New', monospace;
     }
-    #admin-box h3 { color: #fff; margin-bottom: 14px; }
+    #admin-console-titlebar {
+      background: #1a1a1a;
+      padding: 8px 14px;
+      border-radius: 10px 10px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+    #admin-console-titlebar span { color: #aaa; font-size: 0.85rem; }
+    #admin-console-close {
+      background: none; border: none; color: #888; cursor: pointer;
+      font-size: 1rem; line-height: 1;
+    }
+    #admin-console-close:hover { color: #fff; }
+    #admin-login-bar {
+      padding: 12px;
+      display: flex;
+      gap: 8px;
+    }
     #admin-pass {
-      width: 100%; padding: 8px 10px; border-radius: 6px;
-      border: 1px solid #444; background: #111; color: #eee;
-      font-size: 0.9rem; outline: none; margin-bottom: 8px;
+      flex: 1; padding: 7px 10px; border-radius: 6px;
+      border: 1px solid #333; background: #111; color: #eee;
+      font-size: 0.85rem; outline: none; font-family: inherit;
     }
     #admin-submit {
-      width: 100%; padding: 10px; background: #444; color: #fff;
-      border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      padding: 7px 14px; background: #333; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
     }
-    #admin-submit:hover { background: #555; }
-    .admin-player-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid #333; font-size: 0.85rem;
+    #admin-submit:hover { background: #444; }
+    #admin-output {
+      height: 200px; overflow-y: auto; padding: 10px 14px;
+      font-size: 0.8rem; line-height: 1.6; display: none;
     }
-    .admin-player-row .apname { color: #eee; flex: 1; }
-    .admin-player-row .apname.muted { color: #888; text-decoration: line-through; }
-    .admin-player-row button {
-      margin-left: 6px; padding: 3px 8px; border: none; border-radius: 4px;
-      cursor: pointer; font-size: 0.75rem; font-weight: bold;
+    #admin-output::-webkit-scrollbar { width: 4px; }
+    #admin-output::-webkit-scrollbar-thumb { background: #333; }
+    .alog-info  { color: #aaaaaa; }
+    .alog-ok    { color: #44ff88; }
+    .alog-err   { color: #ff5555; }
+    .alog-warn  { color: #ffcc44; }
+    #admin-cmd-bar {
+      display: none;
+      padding: 8px 14px;
+      border-top: 1px solid #222;
+      align-items: center;
+      gap: 6px;
     }
-    .btn-mute { background: #555; color: #fff; }
-    .btn-unmute { background: #335533; color: #aaffaa; }
-    .btn-reset { background: #553333; color: #ffaaaa; }
-    #admin-clearchat-btn {
-      background: #444; color: #fff; border: none; border-radius: 6px;
-      padding: 5px 12px; cursor: pointer; font-size: 0.8rem;
+    #admin-cmd-bar span { color: #555; font-size: 0.85rem; }
+    #admin-cmd {
+      flex: 1; background: none; border: none; color: #00ff88;
+      font-size: 0.85rem; outline: none; font-family: inherit;
     }
+    #admin-error { color: #ff5555; font-size: 0.8rem; padding: 0 14px 10px; display:none; }
 
     #name-changer {
       font-size: 0.9rem;
@@ -409,23 +440,21 @@
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
-<!-- Admin Modal -->
-<div id="admin-modal" style="display:none;position:fixed;inset:0;background:#000000bb;z-index:200;align-items:center;justify-content:center;">
-  <div id="admin-box">
-    <div id="admin-login-view">
-      <h3>🔑 Admin Login</h3>
-      <input id="admin-pass" type="password" placeholder="Password..." />
-      <button id="admin-submit">Login</button>
-      <div id="admin-error" style="color:#ff5555;font-size:0.8rem;margin-top:6px;"></div>
-    </div>
-    <div id="admin-panel-view" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3>🛡️ Admin Panel</h3>
-        <button id="admin-clearchat-btn">🧹 Clear Chat</button>
-      </div>
-      <div id="admin-player-list"></div>
-    </div>
-    <button id="admin-close" style="margin-top:12px;width:100%;background:#333;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer;">Close</button>
+<!-- Admin Console -->
+<div id="admin-console">
+  <div id="admin-console-titlebar">
+    <span>🛡️ Admin Console</span>
+    <button id="admin-console-close">✕</button>
+  </div>
+  <div id="admin-login-bar">
+    <input id="admin-pass" type="password" placeholder="Enter password..." />
+    <button id="admin-submit">Login</button>
+  </div>
+  <div id="admin-error"></div>
+  <div id="admin-output"></div>
+  <div id="admin-cmd-bar">
+    <span>&gt;</span>
+    <input id="admin-cmd" type="text" placeholder="type a command..." autocomplete="off" spellcheck="false" />
   </div>
 </div>
 
@@ -700,6 +729,14 @@
       document.getElementById('chat-messages').innerHTML = '';
     });
 
+    socket.on('banned', (info) => {
+      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#111;color:#ff5555;font-family:monospace;font-size:1.2rem;flex-direction:column;gap:12px;">
+        <div style="font-size:3rem">🔨</div>
+        <div>You have been banned.</div>
+        <div style="color:#888;font-size:0.9rem">${info === 'permanent' ? 'This ban is permanent.' : 'Duration: ' + info}</div>
+      </div>`;
+    });
+
     // Attack received
     socket.on('attack_hit', ({ attackId, attackerName }) => {
       const DURATION = { freeze: 12000, curse: 20000, timetheft: 30000 };
@@ -748,30 +785,22 @@
 
     socket.on('admin_result', ({ success }) => {
       if (success) {
-        document.getElementById('admin-login-view').style.display = 'none';
-        document.getElementById('admin-panel-view').style.display = 'block';
+        document.getElementById('admin-login-bar').style.display = 'none';
+        document.getElementById('admin-output').style.display = 'block';
+        document.getElementById('admin-cmd-bar').style.display = 'flex';
+        adminLog('Logged in. Type /help for commands.', 'alog-ok');
       } else {
-        document.getElementById('admin-error').textContent = 'Wrong password.';
+        const err = document.getElementById('admin-error');
+        err.style.display = 'block';
+        err.textContent = 'Wrong password.';
       }
     });
 
-    socket.on('admin_playerlist', (list) => {
-      const container = document.getElementById('admin-player-list');
-      container.innerHTML = '';
-      list.forEach(p => {
-        const row = document.createElement('div');
-        row.className = 'admin-player-row';
-        row.innerHTML = `
-          <span class="apname ${p.muted ? 'muted' : ''}">${p.name}</span>
-          <span style="color:#888;font-size:0.75rem">${formatNum(p.cookies)} 🍪</span>
-          ${p.muted
-            ? `<button class="btn-unmute" onclick="socket.emit('admin_unmute','${p.name}')">Unmute</button>`
-            : `<button class="btn-mute" onclick="socket.emit('admin_mute','${p.name}')">Mute</button>`}
-          <button class="btn-reset" onclick="socket.emit('admin_reset','${p.name}')">Reset</button>
-        `;
-        container.appendChild(row);
-      });
+    socket.on('admin_action_result', ({ ok, msg }) => {
+      adminLog(msg, ok ? 'alog-ok' : 'alog-err');
     });
+
+    socket.on('admin_playerlist', () => {});
   }
 
   // Name changer
@@ -787,23 +816,84 @@
   });
 
   // ---- Admin ----
+  // ---- Admin Console ----
+  function adminLog(msg, cls = 'alog-info') {
+    const out = document.getElementById('admin-output');
+    const line = document.createElement('div');
+    line.className = cls;
+    line.textContent = msg;
+    out.appendChild(line);
+    out.scrollTop = out.scrollHeight;
+  }
+
   document.getElementById('admin-btn').addEventListener('click', () => {
-    const modal = document.getElementById('admin-modal');
-    modal.style.display = 'flex';
+    const c = document.getElementById('admin-console');
+    c.style.display = c.style.display === 'flex' ? 'none' : 'flex';
   });
-  document.getElementById('admin-close').addEventListener('click', () => {
-    document.getElementById('admin-modal').style.display = 'none';
-    document.getElementById('admin-error').textContent = '';
+
+  document.getElementById('admin-console-close').addEventListener('click', () => {
+    document.getElementById('admin-console').style.display = 'none';
   });
+
   document.getElementById('admin-submit').addEventListener('click', () => {
     const pass = document.getElementById('admin-pass').value;
     if (socket) socket.emit('admin_login', pass);
   });
+
   document.getElementById('admin-pass').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('admin-submit').click();
   });
-  document.getElementById('admin-clearchat-btn').addEventListener('click', () => {
-    if (socket) socket.emit('admin_clearchat');
+
+  const cmdHistory = [];
+  let cmdHistoryIdx = -1;
+  document.getElementById('admin-cmd').addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp') {
+      if (cmdHistoryIdx < cmdHistory.length - 1) cmdHistoryIdx++;
+      e.target.value = cmdHistory[cmdHistoryIdx] || '';
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      if (cmdHistoryIdx > 0) cmdHistoryIdx--;
+      e.target.value = cmdHistory[cmdHistoryIdx] || '';
+      return;
+    }
+    if (e.key !== 'Enter') return;
+    const raw = e.target.value.trim();
+    if (!raw) return;
+    cmdHistory.unshift(raw); cmdHistoryIdx = -1;
+    adminLog('> ' + raw, 'alog-info');
+    e.target.value = '';
+
+    const parts = raw.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+
+    if (cmd === '/help') {
+      adminLog('/mute (name)', 'alog-warn');
+      adminLog('/unmute (name)', 'alog-warn');
+      adminLog('/clear', 'alog-warn');
+      adminLog('/timeout (name) (seconds)', 'alog-warn');
+      adminLog('/ban (name) (seconds|perm)', 'alog-warn');
+      return;
+    }
+    if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
+
+    if (cmd === '/mute') {
+      if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
+      socket.emit('admin_mute', parts[1]);
+    } else if (cmd === '/unmute') {
+      if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
+      socket.emit('admin_unmute', parts[1]);
+    } else if (cmd === '/clear') {
+      socket.emit('admin_clearchat');
+    } else if (cmd === '/timeout') {
+      if (!parts[1] || !parts[2]) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
+      socket.emit('admin_timeout', { name: parts[1], seconds: parseInt(parts[2]) });
+    } else if (cmd === '/ban') {
+      if (!parts[1] || !parts[2]) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
+      socket.emit('admin_ban', { name: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+    } else {
+      adminLog('Unknown command. Type /help', 'alog-err');
+    }
   });
 
   // Auto-join with a random name
