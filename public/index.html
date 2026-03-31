@@ -58,20 +58,22 @@
       font-size: 0.85rem; outline: none;
     }
     #attacks {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; width: 100%; max-width: 420px;
+      display: flex; flex-direction: row;
+      gap: 8px; width: 100%; overflow-x: auto; padding-bottom: 4px;
     }
+    #attacks::-webkit-scrollbar { height: 4px; }
+    #attacks::-webkit-scrollbar-thumb { background: #442222; border-radius: 4px; }
     .attack-btn {
       background: #1e1e1e; border: 1px solid #552222;
-      border-radius: 8px; padding: 10px 12px; cursor: pointer;
-      color: #e0e0e0; text-align: left;
+      border-radius: 8px; padding: 8px 10px; cursor: pointer;
+      color: #e0e0e0; text-align: left; flex-shrink: 0; min-width: 110px;
       transition: border-color 0.2s, background 0.2s;
     }
     .attack-btn:hover:not(:disabled) { border-color: #ff4444; background: #2a1515; }
     .attack-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .attack-btn .atk-name { font-weight: bold; font-size: 0.9rem; }
-    .attack-btn .atk-desc { font-size: 0.75rem; color: #ff9999; margin-top: 2px; }
-    .attack-btn .atk-cost { font-size: 0.8rem; color: #ffaaaa; margin-top: 4px; }
+    .attack-btn .atk-name { font-weight: bold; font-size: 0.8rem; }
+    .attack-btn .atk-desc { font-size: 0.7rem; color: #ff9999; margin-top: 2px; }
+    .attack-btn .atk-cost { font-size: 0.75rem; color: #ffaaaa; margin-top: 3px; }
 
     /* Debuffs */
     #debuffs-display {
@@ -230,62 +232,67 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
+      padding: 10px 16px;
       overflow-y: auto;
-      gap: 16px;
+      gap: 8px;
     }
 
     #cookie-count {
-      font-size: 1.8rem;
+      font-size: 1.4rem;
       color: #ffffff;
       font-weight: bold;
-      text-shadow: 0 0 10px #55555588;
     }
 
-    #cps-display { color: #aaaaaa; font-size: 0.95rem; }
+    #cps-display { color: #aaaaaa; font-size: 0.85rem; }
 
     #cookie-btn {
-      width: 160px;
-      height: 160px;
+      width: 110px;
+      height: 110px;
       border-radius: 50%;
-      border: 4px solid #555;
+      border: 3px solid #555;
       background: radial-gradient(circle at 40% 35%, #c87820, #7a3b00);
       cursor: pointer;
-      font-size: 4rem;
+      font-size: 3rem;
       user-select: none;
       transition: transform 0.08s, box-shadow 0.08s;
-      box-shadow: 0 0 30px #33333355;
+      box-shadow: 0 0 20px #33333355;
     }
 
     #cookie-btn:active {
       transform: scale(0.93);
-      box-shadow: 0 0 10px #22222244;
     }
 
     #upgrades-title {
-      font-size: 1rem;
+      font-size: 0.8rem;
       color: #aaaaaa;
       text-transform: uppercase;
       letter-spacing: 1px;
+      align-self: flex-start;
     }
 
     #upgrades {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
       width: 100%;
-      max-width: 420px;
+      overflow-x: auto;
+      padding-bottom: 4px;
     }
+
+    #upgrades::-webkit-scrollbar { height: 4px; }
+    #upgrades::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
     .upgrade-btn {
       background: #1e1e1e;
       border: 1px solid #333;
       border-radius: 8px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       cursor: pointer;
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
+      flex-shrink: 0;
+      min-width: 110px;
     }
 
     .upgrade-btn:hover:not(:disabled) {
@@ -298,14 +305,14 @@
       cursor: not-allowed;
     }
 
-    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.9rem; }
-    .upgrade-btn .upg-desc { font-size: 0.75rem; color: #aaaaaa; margin-top: 2px; }
-    .upgrade-btn .upg-cost { font-size: 0.8rem; color: #ffffff; margin-top: 4px; }
-    .upgrade-btn .upg-owned { font-size: 0.7rem; color: #aaaaaa; }
+    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.8rem; }
+    .upgrade-btn .upg-desc { font-size: 0.7rem; color: #aaaaaa; margin-top: 2px; }
+    .upgrade-btn .upg-cost { font-size: 0.75rem; color: #ffffff; margin-top: 3px; }
+    .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; }
 
     /* === RIGHT PANEL === */
     #right-panel {
-      width: 280px;
+      width: 240px;
       display: flex;
       flex-direction: column;
       border-left: 2px solid #2a2a2a;
