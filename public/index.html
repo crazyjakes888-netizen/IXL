@@ -645,15 +645,22 @@
     { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+50 click',         baseCost: 500000,   clickPower: 50,   cps: 0 },
     { id: 'godclick',   name: '✨ God Click',      desc: '+200 click',        baseCost: 5000000,  clickPower: 200,  cps: 0 },
     { id: 'omnclick',   name: '💥 Omni Click',     desc: '+1000 click',       baseCost: 50000000, clickPower: 1000, cps: 0 },
+    { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec (frost)',    baseCost: 4000,     clickPower: 0,    cps: 8 },
+    { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec (frost)',   baseCost: 30000,    clickPower: 0,    cps: 40 },
+    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,   clickPower: 0,    cps: 150 },
   ];
 
   const ATTACKS = [
-    { id: 'freeze',    name: '❄️ Freeze',        desc: 'Stop CPS for 12s',       cost: 2000    },
-    { id: 'curse',     name: '☠️ Curse',         desc: '-20/sec for 20s',        cost: 15000   },
-    { id: 'virus',     name: '🦠 Cookie Virus',  desc: 'Halve CPS for 25s',      cost: 30000   },
-    { id: 'drain',     name: '🕳️ Drain',         desc: '-100/sec for 15s',       cost: 50000   },
-    { id: 'timetheft', name: '⏳ Time Theft',    desc: 'Reverse CPS for 30s',    cost: 200000  },
-    { id: 'confuse',   name: '😵 Confuse',       desc: 'Lose 3 random upgrades', cost: 100000  },
+    { id: 'freeze10',  name: '❄️ Freeze Ray I',   desc: 'Freeze CPS for 10s',  cost: 3000    },
+    { id: 'freeze20',  name: '🧊 Freeze Ray II',   desc: 'Freeze CPS for 20s',  cost: 12000   },
+    { id: 'freeze30',  name: '💎 Freeze Ray III',  desc: 'Freeze CPS for 30s',  cost: 35000   },
+    { id: 'curse',     name: '☠️ Curse',           desc: '-20/sec for 20s',     cost: 15000   },
+    { id: 'virus',     name: '🦠 Cookie Virus',    desc: 'Halve CPS for 25s',   cost: 30000   },
+    { id: 'drain',     name: '🕳️ Drain',           desc: '-100/sec for 15s',    cost: 50000   },
+    { id: 'timetheft', name: '⏳ Time Theft',      desc: 'Reverse CPS for 30s', cost: 200000  },
+    { id: 'steal10k',  name: '💸 Cookie Snatch',  desc: 'Remove 10K cookies',  cost: 10000   },
+    { id: 'steal100k', name: '🏴‍☠️ Cookie Raid',   desc: 'Remove 100K cookies', cost: 100000  },
+    { id: 'steal1m',   name: '👑 Cookie Heist',   desc: 'Remove 1M cookies',   cost: 1000000 },
   ];
 
   const activeDebuffs = {}; // { type: clearTimeout }
@@ -1019,11 +1026,21 @@
 
     // Attack received
     socket.on('attack_hit', ({ attackId, attackerName }) => {
-      if (attackId === 'freeze') {
+      if (attackId === 'freeze10') {
         const prev = totalCps;
         totalCps = 0;
-        applyDebuff('freeze', 12000, '❄️ Frozen! CPS=0');
-        setTimeout(() => { totalCps = prev; }, 12000);
+        applyDebuff('freeze', 10000, '❄️ Freeze Ray I! CPS=0 for 10s');
+        setTimeout(() => { totalCps = prev; }, 10000);
+      } else if (attackId === 'freeze20') {
+        const prev = totalCps;
+        totalCps = 0;
+        applyDebuff('freeze', 20000, '🧊 Freeze Ray II! CPS=0 for 20s');
+        setTimeout(() => { totalCps = prev; }, 20000);
+      } else if (attackId === 'freeze30') {
+        const prev = totalCps;
+        totalCps = 0;
+        applyDebuff('freeze', 30000, '💎 Freeze Ray III! CPS=0 for 30s');
+        setTimeout(() => { totalCps = prev; }, 30000);
       } else if (attackId === 'curse') {
         drainAmount = 20;
         applyDebuff('curse', 20000, '☠️ Cursed! -20/sec');
@@ -1042,15 +1059,15 @@
         totalCps = -prev;
         applyDebuff('timetheft', 30000, '⏳ Time Theft! CPS reversed');
         setTimeout(() => { totalCps = prev; }, 30000);
-      } else if (attackId === 'confuse') {
-        const ids = Object.keys(owned).filter(k => owned[k] > 0);
-        for (let i = 0; i < Math.min(3, ids.length); i++) {
-          const pick = ids.splice(Math.floor(Math.random() * ids.length), 1)[0];
-          owned[pick] = Math.max(0, owned[pick] - 1);
-        }
-        recalcCps();
-        updateButtons();
-        applyDebuff('confuse', 3000, '😵 Confused! Lost 3 upgrades');
+      } else if (attackId === 'steal10k') {
+        cookies = Math.max(0, cookies - 10000);
+        applyDebuff('steal', 3000, '💸 Cookie Snatch! Lost 10,000 cookies');
+      } else if (attackId === 'steal100k') {
+        cookies = Math.max(0, cookies - 100000);
+        applyDebuff('steal', 3000, '🏴‍☠️ Cookie Raid! Lost 100,000 cookies');
+      } else if (attackId === 'steal1m') {
+        cookies = Math.max(0, cookies - 1000000);
+        applyDebuff('steal', 3000, '👑 Cookie Heist! Lost 1,000,000 cookies');
       }
       updateDisplay();
       // Show in chat

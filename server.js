@@ -160,6 +160,7 @@ io.on('connection', (socket) => {
     if (!players[socket.id]) return;
     players[socket.id].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
     players[socket.id].cps = Math.max(0, Number(cps) || 0);
+    players[socket.id].lastActive = Date.now();
   });
 
   socket.on('chat_msg', (msg) => {
@@ -190,7 +191,7 @@ io.on('connection', (socket) => {
   // Attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
-    const COSTS = { freeze: 2000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, confuse: 100000 };
+    const COSTS = { freeze10: 3000, freeze20: 12000, freeze30: 35000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, steal10k: 10000, steal100k: 100000, steal1m: 1000000 };
     const cost = COSTS[attackId];
     if (!cost) return;
     if (players[socket.id].cookies < cost) return;
@@ -339,7 +340,9 @@ function getPlayerList() {
 }
 
 function getLeaderboard() {
+  const cutoff = Date.now() - 30000; // drop players with no update in 30s
   return Object.values(players)
+    .filter(p => !p.lastActive || p.lastActive > cutoff)
     .sort((a, b) => b.cookies - a.cookies)
     .map(p => ({ name: p.name, cookies: p.cookies, cps: p.cps }));
 }
