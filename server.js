@@ -16,6 +16,7 @@ const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
+const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
@@ -131,6 +132,12 @@ io.on('connection', (socket) => {
       return;
     }
     const safeName = String(name).slice(0, 50).replace(/[<>&"]/g, '') || 'Anonymous';
+    if (isBlocked(safeName, bannedNames)) {
+      const val = bannedNames[safeName];
+      socket.emit('banned', val === 'perm' ? 'permanent' : Math.ceil((val - Date.now()) / 1000) + 's');
+      socket.disconnect();
+      return;
+    }
     const isRejoining = !!recentlyLeft[safeName];
     // Don't delete — keep suppressing until the 30s timer expires naturally
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, ip };
@@ -292,14 +299,8 @@ io.on('connection', (socket) => {
     const isPerm = duration === 'perm';
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
-    const bannedIp = entry[1].ip;
-    bannedIPs[bannedIp] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
-    // Kick all sockets from that IP
-    Object.entries(players).forEach(([sid, p]) => {
-      if (p.ip === bannedIp) {
-        io.to(sid).emit('banned', isPerm ? 'permanent' : duration + 's');
-      }
-    });
+    bannedNames[name] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
+    io.to(entry[0]).emit('banned', isPerm ? 'permanent' : duration + 's');
     const msg = isPerm ? `🔨 ${name} permanently banned.` : `🔨 ${name} banned for ${duration}s.`;
     io.emit('chat', { system: true, msg, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg });
