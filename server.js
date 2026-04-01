@@ -242,6 +242,15 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `Timed out ${name} for ${secs}s.` });
   });
 
+  socket.on('admin_cookies', ({ name, amount, action }) => {
+    if (!admins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([,p]) => p.name === name);
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
+    const amt = Math.max(0, parseInt(amount) || 0);
+    io.to(entry[0]).emit('admin_cookie_change', { amount: amt, action });
+    socket.emit('admin_action_result', { ok: true, msg: `${action === 'add' ? 'Added' : 'Removed'} ${amt} cookies ${action === 'add' ? 'to' : 'from'} ${name}.` });
+  });
+
   socket.on('admin_wipeaccount', (targetName) => {
     if (!admins.has(socket.id)) return;
     if (accounts[targetName]) {

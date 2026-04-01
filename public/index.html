@@ -882,6 +882,12 @@
       recalcCps(); updateDisplay(); updateButtons();
     });
 
+    socket.on('admin_cookie_change', ({ amount, action }) => {
+      if (action === 'add') cookies += amount;
+      else cookies = Math.max(0, cookies - amount);
+      updateDisplay(); updateButtons();
+    });
+
     socket.on('admin_result', ({ success }) => {
       if (success) {
         document.getElementById('admin-login-bar').style.display = 'none';
@@ -956,12 +962,15 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
-      adminLog('/mute (name)              — permanent mute', 'alog-warn');
-      adminLog('/unmute (name)            — remove mute', 'alog-warn');
-      adminLog('/timeout (name) (sec)     — temp mute', 'alog-warn');
-      adminLog('/ban (name) (sec|perm)    — ban', 'alog-warn');
-      adminLog('/clear                    — clear chat', 'alog-warn');
-      adminLog('/wipeaccount (name)       — delete account', 'alog-warn');
+      adminLog('/mute (name)                   — permanent mute', 'alog-warn');
+      adminLog('/unmute (name)                 — remove mute', 'alog-warn');
+      adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
+      adminLog('/ban (name) (sec|perm)         — ban', 'alog-warn');
+      adminLog('/clear                         — clear chat', 'alog-warn');
+      adminLog('/wipeaccount (name)            — delete account', 'alog-warn');
+      adminLog('/cookie add (name) (amount)    — give cookies', 'alog-warn');
+      adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
+      adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -983,6 +992,20 @@
     } else if (cmd === '/wipeaccount') {
       if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
       socket.emit('admin_wipeaccount', parts[1]);
+    } else if (cmd === '/cookie') {
+      const action = parts[1];
+      if (action === 'add') {
+        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
+        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'add' });
+      } else if (action === 'remove') {
+        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
+        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'remove' });
+      } else if (action === 'wipe') {
+        if (!parts[2]) { adminLog('Usage: /cookie wipe (name)', 'alog-err'); return; }
+        socket.emit('admin_cookies', { name: parts[2], amount: 999999999999, action: 'remove' });
+      } else {
+        adminLog('Usage: /cookie add/remove/wipe (name) (amount)', 'alog-err');
+      }
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
