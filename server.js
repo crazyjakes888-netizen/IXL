@@ -87,6 +87,22 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('autoclicker_report', ({ cps, stdDev, ended, duration }) => {
+    if (!players[socket.id]) return;
+    const name = players[socket.id].name;
+    let msg;
+    if (ended) {
+      msg = `⚠️ [AUTOCLICKER] ${name} stopped — was clicking ${cps} CPS for ${duration}s (stdDev: ${stdDev}ms)`;
+    } else {
+      msg = `🚨 [AUTOCLICKER] ${name} detected! ${cps} CPS, interval stdDev: ${stdDev}ms`;
+    }
+    console.log(msg);
+    // Notify all admins
+    admins.forEach(adminId => {
+      io.to(adminId).emit('admin_action_result', { ok: false, msg });
+    });
+  });
+
   socket.on('save_progress', ({ cookies, owned }) => {
     if (!players[socket.id]) return;
     const uname = players[socket.id].name;
