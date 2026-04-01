@@ -756,7 +756,7 @@
     socket.emit('join', name);
     document.getElementById('name-display').textContent = name;
 
-    socket.on('reconnect', () => {
+    socket.io.on('reconnect', () => {
       socket.emit('join', name);
     });
 
