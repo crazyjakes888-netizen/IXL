@@ -292,8 +292,14 @@ io.on('connection', (socket) => {
     const isPerm = duration === 'perm';
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
-    bannedIPs[entry[1].ip] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
-    io.to(entry[0]).emit('banned', isPerm ? 'permanent' : duration + 's');
+    const bannedIp = entry[1].ip;
+    bannedIPs[bannedIp] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
+    // Kick all sockets from that IP
+    Object.entries(players).forEach(([sid, p]) => {
+      if (p.ip === bannedIp) {
+        io.to(sid).emit('banned', isPerm ? 'permanent' : duration + 's');
+      }
+    });
     const msg = isPerm ? `🔨 ${name} permanently banned.` : `🔨 ${name} banned for ${duration}s.`;
     io.emit('chat', { system: true, msg, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg });
