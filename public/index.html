@@ -159,17 +159,6 @@
     }
     #admin-error { color: #ff5555; font-size: 0.8rem; padding: 0 14px 10px; display:none; }
 
-    #name-changer {
-      font-size: 0.9rem;
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid #444;
-      background: #2a2a2a;
-      color: #e0e0e0;
-      outline: none;
-      width: 140px;
-      vertical-align: middle;
-    }
 
     #join-screen {
       position: fixed;
@@ -442,8 +431,7 @@
 </div>
 
 <header>
-  🍪 COOKIE CHAT &nbsp;|&nbsp;
-  <input id="name-changer" type="text" maxlength="20" placeholder="Your name..." title="Press Enter to change name" />
+  🍪 COOKIE CHAT &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
@@ -711,11 +699,11 @@
     updateDisplay();
 
     socket.emit('join', name);
-    document.getElementById('name-changer').value = name;
+    document.getElementById('name-display').textContent = name;
 
     socket.on('connect', () => {
       socket.emit('join', name);
-      document.getElementById('name-changer').value = name;
+      document.getElementById('name-display').textContent = name;
     });
 
     socket.on('leaderboard', (lb) => {
@@ -835,18 +823,6 @@
     socket.on('admin_playerlist', () => {});
   }
 
-  // Name changer
-  document.getElementById('name-changer').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const newName = e.target.value.trim();
-      if (newName && socket) {
-        myName = newName;
-        localStorage.setItem('cookiechat_name', newName);
-        socket.emit('join', newName);
-        e.target.blur();
-      }
-    }
-  });
 
   // ---- Admin ----
   // ---- Admin Console ----
