@@ -83,10 +83,12 @@ io.on('connection', (socket) => {
       // New account — auto-create
       accounts[uname] = { hash, cookies: 0, owned: {} };
       saveAccounts();
+      socket._authedName = uname;
       socket.emit('auth_result', { ok: true, username: uname, cookies: 0, owned: {} });
     } else if (acc.hash !== hash) {
       socket.emit('auth_result', { ok: false, msg: 'Wrong password.' });
     } else {
+      socket._authedName = uname;
       socket.emit('auth_result', { ok: true, username: uname, cookies: acc.cookies || 0, owned: acc.owned || {} });
     }
   });
@@ -111,8 +113,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('save_progress', ({ cookies, owned }) => {
-    if (!players[socket.id]) return;
-    const uname = players[socket.id].name;
+    const uname = (players[socket.id] && players[socket.id].name) || socket._authedName;
+    if (!uname) return;
     if (accounts[uname]) {
       accounts[uname].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
       accounts[uname].owned = owned || {};
@@ -285,6 +287,11 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
+      // Persist latest cookie count so it isn't lost if save_progress didn't arrive
+      if (accounts[name]) {
+        accounts[name].cookies = Math.max(accounts[name].cookies || 0, players[socket.id].cookies || 0);
+        saveAccounts();
+      }
       recentlyLeft[name] = Date.now();
       if (recentlyLeftTimers[name]) clearTimeout(recentlyLeftTimers[name]);
       recentlyLeftTimers[name] = setTimeout(() => {

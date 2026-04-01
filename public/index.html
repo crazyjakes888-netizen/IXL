@@ -1070,14 +1070,20 @@
       document.getElementById('auth-error').textContent = msg;
       return;
     }
-    // Use server data, but fall back to localStorage if server lost data (Render restart)
+    // Merge server and localStorage — take max cookies and max of each upgrade count
     const lsKey = 'cc_' + username;
     const lsBackup = JSON.parse(localStorage.getItem(lsKey) || 'null');
     const serverCookies = savedCookies || 0;
     const backupCookies = lsBackup ? (lsBackup.cookies || 0) : 0;
     cookies = Math.max(serverCookies, backupCookies);
-    const so = (serverCookies >= backupCookies ? savedOwned : lsBackup.owned) || {};
-    Object.keys(so).forEach(k => { if (owned[k] !== undefined) owned[k] = so[k]; });
+    const serverOwned = savedOwned || {};
+    const lsOwned = (lsBackup && lsBackup.owned) || {};
+    const allKeys = new Set([...Object.keys(serverOwned), ...Object.keys(lsOwned)]);
+    allKeys.forEach(k => {
+      if (owned[k] !== undefined) {
+        owned[k] = Math.max(Number(serverOwned[k]) || 0, Number(lsOwned[k]) || 0);
+      }
+    });
     recalcCps();
     startGame(username, socket0);
   });
