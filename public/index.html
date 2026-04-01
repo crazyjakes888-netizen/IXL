@@ -930,11 +930,12 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
-      adminLog('/mute (name)          — permanent mute', 'alog-warn');
-      adminLog('/unmute (name)        — remove mute', 'alog-warn');
-      adminLog('/timeout (name) (sec) — temp mute', 'alog-warn');
-      adminLog('/ban (name) (sec|perm)— ban', 'alog-warn');
-      adminLog('/clear                — clear chat', 'alog-warn');
+      adminLog('/mute (name)              — permanent mute', 'alog-warn');
+      adminLog('/unmute (name)            — remove mute', 'alog-warn');
+      adminLog('/timeout (name) (sec)     — temp mute', 'alog-warn');
+      adminLog('/ban (name) (sec|perm)    — ban', 'alog-warn');
+      adminLog('/clear                    — clear chat', 'alog-warn');
+      adminLog('/wipeaccount (name)       — delete account', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -953,6 +954,9 @@
     } else if (cmd === '/ban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ban', { name: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+    } else if (cmd === '/wipeaccount') {
+      if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
+      socket.emit('admin_wipeaccount', parts[1]);
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }

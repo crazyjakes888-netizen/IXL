@@ -238,6 +238,17 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `Timed out ${name} for ${secs}s.` });
   });
 
+  socket.on('admin_wipeaccount', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    if (accounts[targetName]) {
+      delete accounts[targetName];
+      saveAccounts();
+      socket.emit('admin_action_result', { ok: true, msg: `Wiped account: ${targetName}` });
+    } else {
+      socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
+    }
+  });
+
   socket.on('admin_ban', ({ name, duration }) => {
     if (!admins.has(socket.id)) return;
     const isPerm = duration === 'perm';
