@@ -673,13 +673,28 @@
   let acLocked = false;
   let acHighCpsSeconds = 0;
 
+  function showFlagBanner(visible) {
+    let banner = document.getElementById('ac-banner');
+    if (visible) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'ac-banner';
+        banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#ff2222;color:#fff;font-weight:bold;font-size:1rem;padding:12px 24px;border-radius:8px;z-index:9999;text-align:center;box-shadow:0 0 20px #ff000088;';
+        banner.textContent = '🚫 You have been flagged for auto clicking! Locked for 10s.';
+        document.body.appendChild(banner);
+      }
+    } else {
+      if (banner) banner.remove();
+    }
+  }
+
   function lockCookieBtn() {
     acLocked = true;
     const btn = document.getElementById('cookie-btn');
     btn.disabled = true;
     btn.style.opacity = '0.4';
-    btn.title = 'FLAGGED FOR AUTO CLICKER';
     btn.textContent = '🚫';
+    showFlagBanner(true);
     if (socket && myName) {
       socket.emit('autoclicker_report', { cps: (clickTimes.length / 3).toFixed(1), locked: true });
     }
@@ -689,8 +704,8 @@
       clickTimes.length = 0;
       btn.disabled = false;
       btn.style.opacity = '1';
-      btn.title = 'Click me!';
       btn.textContent = '🍪';
+      showFlagBanner(false);
       if (socket && myName) socket.emit('autoclicker_report', { unlocked: true });
     }, 10000);
   }
@@ -902,6 +917,11 @@
     });
 
     socket.on('admin_action_result', ({ ok, msg }) => {
+      // Auto-open admin console for autoclicker alerts
+      if (msg && msg.includes('[AUTOCLICKER]')) {
+        const c = document.getElementById('admin-console');
+        if (c.style.display !== 'flex') c.style.display = 'flex';
+      }
       adminLog(msg, ok ? 'alog-ok' : 'alog-err');
     });
 
