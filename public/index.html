@@ -573,6 +573,7 @@
           recalcCps();
           updateButtons();
           updateDisplay();
+          saveProgress();
         }
       });
       container.appendChild(btn);
@@ -756,13 +757,16 @@
     }
   }, 50);
 
-  // Save progress to server + localStorage every 5 seconds
-  setInterval(() => {
-    if (socket && myName) {
-      socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
-      localStorage.setItem('cc_' + myName, JSON.stringify({ cookies: Math.floor(cookies), owned }));
-    }
-  }, 5000);
+  function saveProgress() {
+    if (!myName) return;
+    localStorage.setItem('cc_' + myName, JSON.stringify({ cookies: Math.floor(cookies), owned }));
+    if (socket) socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
+  }
+
+  // Save every second
+  setInterval(saveProgress, 1000);
+  // Save when tab closes
+  window.addEventListener('beforeunload', saveProgress);
 
   // ---- Join ----
   function startGame(name, existingSocket) {
