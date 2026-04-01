@@ -20,16 +20,18 @@
 
     header {
       background: #1e1e1e;
-      padding: 10px 20px;
+      padding: 10px 120px;
       text-align: center;
       font-size: 1.4rem;
       font-weight: bold;
       color: #ffffff;
       border-bottom: 2px solid #333;
       letter-spacing: 2px;
+      position: relative;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-
-    header { position: relative; }
     #admin-btn {
       position: absolute;
       right: 16px;
@@ -490,6 +492,46 @@
     @keyframes pop-up {
       0%   { opacity: 1; transform: translateY(0) scale(1); }
       100% { opacity: 0; transform: translateY(-50px) scale(1.4); }
+    }
+
+    /* ===== RESPONSIVE ===== */
+
+    /* Chromebook / small laptop (900–1200px) */
+    @media (max-width: 1100px) {
+      #right-panel { width: 230px; min-width: 230px; }
+      #upgrades { grid-template-columns: repeat(2, 1fr); }
+      #attacks  { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Tablet / iPad (600–900px) */
+    @media (max-width: 900px) {
+      header { padding: 10px 90px; font-size: 1rem; letter-spacing: 1px; }
+      #lb-modal-btn, #admin-btn { font-size: 0.72rem; padding: 4px 8px; }
+      #right-panel { width: 200px; min-width: 200px; }
+      #admin-console { width: calc(100vw - 24px); right: 12px; left: 12px; }
+      #lb-modal { width: 95vw; }
+    }
+
+    /* Phone / very small screen (< 600px) */
+    @media (max-width: 600px) {
+      header { padding: 10px 75px; font-size: 0.82rem; letter-spacing: 0; }
+      #lb-modal-btn { left: 6px; font-size: 0.68rem; padding: 4px 6px; }
+      #admin-btn    { right: 6px; font-size: 0.68rem; padding: 4px 6px; }
+      #main { flex-direction: column; overflow-y: auto; }
+      #game-panel { overflow-y: visible; }
+      #right-panel {
+        width: 100%; min-width: 0;
+        border-left: none;
+        border-top: 2px solid #2a2a2a;
+        flex-direction: row;
+        max-height: 240px;
+      }
+      #leaderboard { display: none; }
+      #chat-section { flex: 1; min-width: 0; }
+      #upgrades { grid-template-columns: repeat(2, 1fr); }
+      #attacks  { grid-template-columns: repeat(2, 1fr); }
+      #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
+      #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
     }
   </style>
 </head>
@@ -1128,7 +1170,8 @@
       adminLog('/mute (name)                   — permanent mute', 'alog-warn');
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
-      adminLog('/ban (name) (sec|perm)         — ban', 'alog-warn');
+      adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
+      adminLog('/ipban (ip) (sec|perm)         — ban by IP', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
       adminLog('/wipeaccount (name)            — delete account', 'alog-warn');
       adminLog('/cookie add (name) (amount)    — give cookies', 'alog-warn');
@@ -1153,6 +1196,9 @@
     } else if (cmd === '/ban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ban', { name: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+    } else if (cmd === '/ipban') {
+      if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
+      socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
     } else if (cmd === '/wipeaccount') {
       if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
       socket.emit('admin_wipeaccount', parts[1]);

@@ -272,6 +272,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('admin_ipban', ({ ip, duration }) => {
+    if (!admins.has(socket.id)) return;
+    const isPerm = duration === 'perm';
+    const safeIp = String(ip).slice(0, 100);
+    bannedIPs[safeIp] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
+    // Kick any currently connected player with this IP
+    Object.entries(players).forEach(([sid, p]) => {
+      if (p.ip === safeIp) {
+        io.to(sid).emit('banned', isPerm ? 'permanent' : duration + 's');
+      }
+    });
+    const msg = isPerm ? `🔨 IP ${safeIp} permanently banned.` : `🔨 IP ${safeIp} banned for ${duration}s.`;
+    socket.emit('admin_action_result', { ok: true, msg });
+  });
+
   socket.on('admin_ban', ({ name, duration }) => {
     if (!admins.has(socket.id)) return;
     const isPerm = duration === 'perm';
