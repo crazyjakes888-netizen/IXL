@@ -45,6 +45,81 @@
     }
     #admin-btn:hover { background: #444; }
 
+    #lb-modal-btn {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    #lb-modal-btn:hover { background: #444; }
+
+    #lb-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000000bb;
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    #lb-modal-overlay.open { display: flex; }
+
+    #lb-modal {
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 10px;
+      width: 420px;
+      max-width: 95vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #lb-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid #333;
+      font-weight: bold;
+      font-size: 1rem;
+      color: #fff;
+    }
+    #lb-modal-close {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.2rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    #lb-modal-close:hover { color: #fff; }
+    #lb-modal-body {
+      overflow-y: auto;
+      padding: 10px 18px;
+    }
+    #lb-modal-list { list-style: none; width: 100%; }
+    #lb-modal-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid #2a2a2a;
+      font-size: 0.9rem;
+    }
+    #lb-modal-list li:last-child { border-bottom: none; }
+    #lb-modal-list .lbm-rank { color: #888; width: 28px; flex-shrink: 0; }
+    #lb-modal-list .lbm-name { color: #e0e0e0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #lb-modal-list .lbm-name.me { color: #fff; font-weight: bold; }
+    #lb-modal-list .lbm-score { color: #fff; white-space: nowrap; margin-left: 10px; }
+
     /* Attacks */
     #attacks-title {
       font-size: 1rem; color: #aaaaaa;
@@ -431,9 +506,23 @@
 </div>
 
 <header>
+  <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
   🍪 COOKIE CHAT &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
+
+<!-- Full Leaderboard Modal -->
+<div id="lb-modal-overlay">
+  <div id="lb-modal">
+    <div id="lb-modal-header">
+      🏆 Full Leaderboard
+      <button id="lb-modal-close">✕</button>
+    </div>
+    <div id="lb-modal-body">
+      <ul id="lb-modal-list"></ul>
+    </div>
+  </div>
+</div>
 
 <!-- Admin Console -->
 <div id="admin-console">
@@ -800,10 +889,15 @@
       socket.emit('join', name);
     });
 
+    let fullLeaderboard = [];
+
     socket.on('leaderboard', (lb) => {
+      fullLeaderboard = lb;
+
+      // Sidebar: top 10 only
       const list = document.getElementById('lb-list');
       list.innerHTML = '';
-      lb.forEach((p, i) => {
+      lb.slice(0, 10).forEach((p, i) => {
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
         li.innerHTML = `
@@ -812,7 +906,42 @@
         `;
         list.appendChild(li);
       });
+
+      // If modal is open, refresh it live
+      if (document.getElementById('lb-modal-overlay').classList.contains('open')) {
+        renderModalLeaderboard();
+      }
+
       updateTargetList(lb);
+    });
+
+    function renderModalLeaderboard() {
+      const ul = document.getElementById('lb-modal-list');
+      ul.innerHTML = '';
+      fullLeaderboard.forEach((p, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span class="lbm-rank">${i + 1}.</span>
+          <span class="lbm-name${p.name === myName ? ' me' : ''}">${p.name}</span>
+          <span class="lbm-score">${formatNum(p.cookies)}</span>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    document.getElementById('lb-modal-btn').addEventListener('click', () => {
+      renderModalLeaderboard();
+      document.getElementById('lb-modal-overlay').classList.add('open');
+    });
+
+    document.getElementById('lb-modal-close').addEventListener('click', () => {
+      document.getElementById('lb-modal-overlay').classList.remove('open');
+    });
+
+    document.getElementById('lb-modal-overlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('lb-modal-overlay')) {
+        document.getElementById('lb-modal-overlay').classList.remove('open');
+      }
     });
 
     socket.on('chat_cooldown', (secs) => {

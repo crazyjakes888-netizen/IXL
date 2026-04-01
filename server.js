@@ -43,7 +43,7 @@ function isBlocked(ip, store) {
   return false;
 }
 
-const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','piss','bastard','damn','hell','crap'];
+const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','piss','bastard','crap'];
 
 // Normalize leetspeak and common substitutions for comparison only
 function normalize(str, parenAs = 'i') {
@@ -319,7 +319,6 @@ function getPlayerList() {
 function getLeaderboard() {
   return Object.values(players)
     .sort((a, b) => b.cookies - a.cookies)
-    .slice(0, 10)
     .map(p => ({ name: p.name, cookies: p.cookies, cps: p.cps }));
 }
 
