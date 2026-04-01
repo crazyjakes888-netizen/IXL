@@ -16,7 +16,7 @@ const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
-const ADMIN_PASSWORD = '1648';
+let ADMIN_PASSWORD = '1648';
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
 
@@ -250,6 +250,13 @@ io.on('connection', (socket) => {
     const amt = Math.max(0, parseInt(amount) || 0);
     io.to(entry[0]).emit('admin_cookie_change', { amount: amt, action });
     socket.emit('admin_action_result', { ok: true, msg: `${action === 'add' ? 'Added' : 'Removed'} ${amt} cookies ${action === 'add' ? 'to' : 'from'} ${name}.` });
+  });
+
+  socket.on('admin_setpassword', (newPassword) => {
+    if (!admins.has(socket.id)) return;
+    if (!newPassword || newPassword.length < 4) { socket.emit('admin_action_result', { ok: false, msg: 'Password must be at least 4 characters.' }); return; }
+    ADMIN_PASSWORD = String(newPassword);
+    socket.emit('admin_action_result', { ok: true, msg: `Admin password changed.` });
   });
 
   socket.on('admin_wipeaccount', (targetName) => {

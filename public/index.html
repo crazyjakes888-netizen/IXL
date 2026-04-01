@@ -940,9 +940,23 @@
     out.scrollTop = out.scrollHeight;
   }
 
+  function resetAdminConsole() {
+    document.getElementById('admin-login-bar').style.display = 'flex';
+    document.getElementById('admin-output').style.display = 'none';
+    document.getElementById('admin-cmd-bar').style.display = 'none';
+    document.getElementById('admin-error').style.display = 'none';
+    document.getElementById('admin-pass').value = '';
+    document.getElementById('admin-output').innerHTML = '';
+  }
+
   document.getElementById('admin-btn').addEventListener('click', () => {
     const c = document.getElementById('admin-console');
-    c.style.display = c.style.display === 'flex' ? 'none' : 'flex';
+    if (c.style.display === 'flex') {
+      c.style.display = 'none';
+    } else {
+      resetAdminConsole();
+      c.style.display = 'flex';
+    }
   });
 
   document.getElementById('admin-console-close').addEventListener('click', () => {
@@ -991,6 +1005,7 @@
       adminLog('/cookie add (name) (amount)    — give cookies', 'alog-warn');
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
+      adminLog('/setpassword (newpassword)      — change admin password', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1026,6 +1041,9 @@
       } else {
         adminLog('Usage: /cookie add/remove/wipe (name) (amount)', 'alog-err');
       }
+    } else if (cmd === '/setpassword') {
+      if (!parts[1]) { adminLog('Usage: /setpassword (newpassword)', 'alog-err'); return; }
+      socket.emit('admin_setpassword', parts[1]);
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
