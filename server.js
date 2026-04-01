@@ -12,6 +12,7 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const players = {};
+const recentlyLeft = {}; // name -> timestamp, suppress join spam on reconnect
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const ADMIN_PASSWORD = '1648';
@@ -75,14 +76,15 @@ io.on('connection', (socket) => {
     const uname = String(username).slice(0, 50).replace(/[<>&"']/g, '').trim();
     if (!uname || !password) { socket.emit('auth_result', { ok: false, msg: 'Invalid input.' }); return; }
     const hash = hashPw(password);
-    if (isRegister) {
-      if (accounts[uname]) { socket.emit('auth_result', { ok: false, msg: 'Username already taken.' }); return; }
+    const acc = accounts[uname];
+    if (!acc) {
+      // New account — auto-create
       accounts[uname] = { hash, cookies: 0, owned: {} };
       saveAccounts();
       socket.emit('auth_result', { ok: true, username: uname, cookies: 0, owned: {} });
+    } else if (acc.hash !== hash) {
+      socket.emit('auth_result', { ok: false, msg: 'Wrong password.' });
     } else {
-      const acc = accounts[uname];
-      if (!acc || acc.hash !== hash) { socket.emit('auth_result', { ok: false, msg: 'Wrong username or password.' }); return; }
       socket.emit('auth_result', { ok: true, username: uname, cookies: acc.cookies || 0, owned: acc.owned || {} });
     }
   });
@@ -124,19 +126,21 @@ io.on('connection', (socket) => {
       socket.disconnect();
       return;
     }
-    const safeName = String(name).slice(0, 20).replace(/[<>&"]/g, '') || 'Anonymous';
+    const safeName = String(name).slice(0, 50).replace(/[<>&"]/g, '') || 'Anonymous';
+    const isRejoining = recentlyLeft[safeName] && (Date.now() - recentlyLeft[safeName] < 30000);
+    delete recentlyLeft[safeName];
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, ip };
 
     socket.emit('joined', { id: socket.id, name: safeName });
-
-    // Send chat history + current leaderboard
     io.emit('leaderboard', getLeaderboard());
 
-    io.emit('chat', {
-      system: true,
-      msg: `${safeName} joined the game!`,
-      time: Date.now()
-    });
+    if (!isRejoining) {
+      io.emit('chat', {
+        system: true,
+        msg: `${safeName} joined the game!`,
+        time: Date.now()
+      });
+    }
   });
 
   socket.on('update_score', ({ cookies, cps }) => {
@@ -249,9 +253,10 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
+      recentlyLeft[name] = Date.now();
+      setTimeout(() => { if (recentlyLeft[name]) delete recentlyLeft[name]; }, 30000);
       delete players[socket.id];
       admins.delete(socket.id);
-      io.emit('chat', { system: true, msg: `${name} left the game.`, time: Date.now() });
       io.emit('leaderboard', getLeaderboard());
     }
   });

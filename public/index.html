@@ -425,8 +425,7 @@
     <h2>🍪 Cookie Chat</h2>
     <input id="auth-username" type="text" placeholder="Username..." maxlength="50" autocomplete="username" />
     <input id="auth-password" type="password" placeholder="Password..." maxlength="50" autocomplete="current-password" />
-    <button id="login-btn">Login</button>
-    <button id="register-btn" style="background:#333;">Register New Account</button>
+    <button id="login-btn">Login / Create Account</button>
     <div id="auth-error"></div>
   </div>
 </div>
@@ -973,7 +972,6 @@
   }
 
   document.getElementById('login-btn').addEventListener('click', () => doAuth(false));
-  document.getElementById('register-btn').addEventListener('click', () => doAuth(true));
   document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(false); });
 
   socket0.on('auth_result', ({ ok, msg, username, cookies: savedCookies, owned: savedOwned }) => {
