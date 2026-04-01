@@ -16,7 +16,8 @@ const recentlyLeft = {}; // name -> timestamp, suppress join spam on reconnect
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const ADMIN_PASSWORD = '1648';
-const admins = new Set();
+const admins = new Set();       // socket IDs
+const adminNames = new Set();   // usernames (persists across reconnects)
 
 const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
 let accounts = {};
@@ -141,6 +142,8 @@ io.on('connection', (socket) => {
         time: Date.now()
       });
     }
+    // Restore admin status if they were admin before
+    if (adminNames.has(safeName)) admins.add(socket.id);
   });
 
   socket.on('update_score', ({ cookies, cps }) => {
@@ -196,6 +199,7 @@ io.on('connection', (socket) => {
   socket.on('admin_login', (password) => {
     if (password === ADMIN_PASSWORD) {
       admins.add(socket.id);
+      if (players[socket.id]) adminNames.add(players[socket.id].name);
       socket.emit('admin_result', { success: true });
       socket.emit('admin_playerlist', getPlayerList());
     } else {

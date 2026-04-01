@@ -551,26 +551,27 @@
   }
 
   // ---- UI ----
-  function renderUpgrades() {
+  // Build upgrade buttons once, then only update state
+  function buildUpgrades() {
     const container = document.getElementById('upgrades');
     container.innerHTML = '';
     UPGRADES.forEach(upg => {
-      const cost = getCost(upg);
       const btn = document.createElement('button');
       btn.className = 'upgrade-btn';
-      btn.disabled = cookies < cost;
+      btn.id = 'upg-' + upg.id;
       btn.innerHTML = `
         <div class="upg-name">${upg.name}</div>
         <div class="upg-desc">${upg.desc}</div>
-        <div class="upg-cost">🍪 ${formatNum(cost)}</div>
-        <div class="upg-owned">owned: ${owned[upg.id]}</div>
+        <div class="upg-cost" id="upg-cost-${upg.id}">🍪 ${formatNum(getCost(upg))}</div>
+        <div class="upg-owned" id="upg-owned-${upg.id}">owned: 0</div>
       `;
       btn.addEventListener('click', () => {
+        const cost = getCost(upg);
         if (cookies >= cost) {
           cookies -= cost;
           owned[upg.id]++;
           recalcCps();
-          renderUpgrades();
+          updateButtons();
           updateDisplay();
         }
       });
@@ -578,13 +579,13 @@
     });
   }
 
-  function renderAttacks() {
+  function buildAttacks() {
     const container = document.getElementById('attacks');
     container.innerHTML = '';
     ATTACKS.forEach(atk => {
       const btn = document.createElement('button');
       btn.className = 'attack-btn';
-      btn.disabled = cookies < atk.cost;
+      btn.id = 'atk-' + atk.id;
       btn.innerHTML = `
         <div class="atk-name">${atk.name}</div>
         <div class="atk-desc">${atk.desc}</div>
@@ -598,12 +599,32 @@
           cookies -= atk.cost;
           socket.emit('attack', { attackId: atk.id, targetName: target });
           updateDisplay();
-          renderAttacks();
+          updateButtons();
         }
       });
       container.appendChild(btn);
     });
   }
+
+  // Just update disabled state + owned counts — no DOM rebuild
+  function updateButtons() {
+    UPGRADES.forEach(upg => {
+      const cost = getCost(upg);
+      const btn = document.getElementById('upg-' + upg.id);
+      if (!btn) return;
+      btn.disabled = cookies < cost;
+      document.getElementById('upg-cost-' + upg.id).textContent = '🍪 ' + formatNum(cost);
+      document.getElementById('upg-owned-' + upg.id).textContent = 'owned: ' + owned[upg.id];
+    });
+    ATTACKS.forEach(atk => {
+      const btn = document.getElementById('atk-' + atk.id);
+      if (!btn) return;
+      btn.disabled = cookies < atk.cost;
+    });
+  }
+
+  function renderUpgrades() { updateButtons(); }
+  function renderAttacks()  { updateButtons(); }
 
   function updateTargetList(players) {
     const sel = document.getElementById('attack-target');
@@ -735,10 +756,11 @@
     }
   }, 50);
 
-  // Save progress to server every 5 seconds
+  // Save progress to server + localStorage every 5 seconds
   setInterval(() => {
     if (socket && myName) {
       socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
+      localStorage.setItem('cc_' + myName, JSON.stringify({ cookies: Math.floor(cookies), owned }));
     }
   }, 5000);
 
@@ -837,7 +859,7 @@
           owned[pick] = Math.max(0, owned[pick] - 1);
         }
         recalcCps();
-        renderUpgrades();
+        updateButtons();
         applyDebuff('confuse', 3000, '😵 Confused! Lost 3 upgrades');
       }
       updateDisplay();
@@ -853,7 +875,7 @@
     socket.on('admin_reset_you', () => {
       cookies = 0; totalCps = 0;
       Object.keys(owned).forEach(k => owned[k] = 0);
-      recalcCps(); updateDisplay(); renderUpgrades();
+      recalcCps(); updateDisplay(); updateButtons();
     });
 
     socket.on('admin_result', ({ success }) => {
@@ -983,8 +1005,13 @@
       document.getElementById('auth-error').textContent = msg;
       return;
     }
-    cookies = savedCookies || 0;
-    const so = savedOwned || {};
+    // Use server data, but fall back to localStorage if server lost data (Render restart)
+    const lsKey = 'cc_' + username;
+    const lsBackup = JSON.parse(localStorage.getItem(lsKey) || 'null');
+    const serverCookies = savedCookies || 0;
+    const backupCookies = lsBackup ? (lsBackup.cookies || 0) : 0;
+    cookies = Math.max(serverCookies, backupCookies);
+    const so = (serverCookies >= backupCookies ? savedOwned : lsBackup.owned) || {};
     Object.keys(so).forEach(k => { if (owned[k] !== undefined) owned[k] = so[k]; });
     recalcCps();
     startGame(username, socket0);
@@ -1006,8 +1033,8 @@
   });
 
   // ---- Init (before login) ----
-  renderUpgrades();
-  renderAttacks();
+  buildUpgrades();
+  buildAttacks();
   updateDisplay();
 </script>
 </body>
