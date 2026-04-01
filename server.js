@@ -12,7 +12,8 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const players = {};
-const recentlyLeft = {}; // name -> timestamp, suppress join spam on reconnect
+const recentlyLeft = {};        // name -> timestamp
+const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const ADMIN_PASSWORD = '1648';
@@ -128,8 +129,8 @@ io.on('connection', (socket) => {
       return;
     }
     const safeName = String(name).slice(0, 50).replace(/[<>&"]/g, '') || 'Anonymous';
-    const isRejoining = recentlyLeft[safeName] && (Date.now() - recentlyLeft[safeName] < 30000);
-    delete recentlyLeft[safeName];
+    const isRejoining = !!recentlyLeft[safeName];
+    // Don't delete — keep suppressing until the 30s timer expires naturally
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, ip };
 
     socket.emit('joined', { id: socket.id, name: safeName });
@@ -278,7 +279,11 @@ io.on('connection', (socket) => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
       recentlyLeft[name] = Date.now();
-      setTimeout(() => { if (recentlyLeft[name]) delete recentlyLeft[name]; }, 30000);
+      if (recentlyLeftTimers[name]) clearTimeout(recentlyLeftTimers[name]);
+      recentlyLeftTimers[name] = setTimeout(() => {
+        delete recentlyLeft[name];
+        delete recentlyLeftTimers[name];
+      }, 30000);
       delete players[socket.id];
       admins.delete(socket.id);
       io.emit('leaderboard', getLeaderboard());
