@@ -43,7 +43,7 @@ function isBlocked(ip, store) {
   return false;
 }
 
-const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','piss','bastard','crap'];
+const BAD_WORDS = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys'];
 
 // Normalize leetspeak and common substitutions for comparison only
 function normalize(str, parenAs = 'i') {
