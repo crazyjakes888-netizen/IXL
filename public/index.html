@@ -649,33 +649,49 @@
   const clickTimes = [];
   let acFlagged = false;
   let acFlagStart = null;
+  let acLocked = false;
+  let acHighCpsSeconds = 0;
+
+  function lockCookieBtn() {
+    acLocked = true;
+    const btn = document.getElementById('cookie-btn');
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.title = 'FLAGGED FOR AUTO CLICKER';
+    btn.textContent = '🚫';
+    if (socket && myName) {
+      socket.emit('autoclicker_report', { cps: (clickTimes.length / 3).toFixed(1), locked: true });
+    }
+    setTimeout(() => {
+      acLocked = false;
+      acHighCpsSeconds = 0;
+      clickTimes.length = 0;
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.title = 'Click me!';
+      btn.textContent = '🍪';
+      if (socket && myName) socket.emit('autoclicker_report', { unlocked: true });
+    }, 10000);
+  }
 
   function checkAutoClicker() {
+    if (acLocked) return;
     const now = Date.now();
-    // Keep only clicks in the last 5 seconds
-    while (clickTimes.length && now - clickTimes[0] > 5000) clickTimes.shift();
-    const count = clickTimes.length;
-    const cps = count / 5;
-    if (count < 10) return; // not enough data
-    // Calc interval variance
-    const intervals = [];
-    for (let i = 1; i < clickTimes.length; i++) intervals.push(clickTimes[i] - clickTimes[i-1]);
-    const avg = intervals.reduce((a,b) => a+b, 0) / intervals.length;
-    const variance = intervals.reduce((a,b) => a + Math.pow(b-avg,2), 0) / intervals.length;
-    const stdDev = Math.sqrt(variance);
-    // Suspicious: >12 CPS with very regular timing (stdDev < 15ms) OR >20 CPS sustained
-    const suspicious = (cps >= 12 && stdDev < 15) || cps >= 20;
-    if (suspicious && !acFlagged) {
+    while (clickTimes.length && now - clickTimes[0] > 3000) clickTimes.shift();
+    const cps = clickTimes.length / 3;
+    if (cps >= 30) {
+      acHighCpsSeconds++;
+      if (acHighCpsSeconds >= 3) lockCookieBtn();
+    } else {
+      acHighCpsSeconds = 0;
+    }
+    if (cps >= 15 && !acFlagged) {
       acFlagged = true;
       acFlagStart = now;
-      if (socket && myName) {
-        socket.emit('autoclicker_report', { cps: cps.toFixed(1), stdDev: stdDev.toFixed(1) });
-      }
-    } else if (!suspicious && acFlagged) {
+      if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1) });
+    } else if (cps < 15 && acFlagged) {
       const duration = ((now - acFlagStart) / 1000).toFixed(0);
-      if (socket && myName) {
-        socket.emit('autoclicker_report', { cps: cps.toFixed(1), stdDev: stdDev.toFixed(1), ended: true, duration });
-      }
+      if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1), ended: true, duration });
       acFlagged = false;
       acFlagStart = null;
     }
@@ -740,9 +756,8 @@
     socket.emit('join', name);
     document.getElementById('name-display').textContent = name;
 
-    socket.on('connect', () => {
+    socket.on('reconnect', () => {
       socket.emit('join', name);
-      document.getElementById('name-display').textContent = name;
     });
 
     socket.on('leaderboard', (lb) => {

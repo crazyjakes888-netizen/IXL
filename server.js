@@ -87,17 +87,20 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('autoclicker_report', ({ cps, stdDev, ended, duration }) => {
+  socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked }) => {
     if (!players[socket.id]) return;
     const name = players[socket.id].name;
     let msg;
-    if (ended) {
-      msg = `⚠️ [AUTOCLICKER] ${name} stopped — was clicking ${cps} CPS for ${duration}s (stdDev: ${stdDev}ms)`;
+    if (locked) {
+      msg = `🔒 [AUTOCLICKER] ${name} LOCKED for 10s — clicking ${cps} CPS`;
+    } else if (unlocked) {
+      msg = `🔓 [AUTOCLICKER] ${name} unlocked after 10s cooldown`;
+    } else if (ended) {
+      msg = `⚠️ [AUTOCLICKER] ${name} stopped — was clicking ${cps} CPS for ${duration}s`;
     } else {
-      msg = `🚨 [AUTOCLICKER] ${name} detected! ${cps} CPS, interval stdDev: ${stdDev}ms`;
+      msg = `🚨 [AUTOCLICKER] ${name} suspicious! ${cps} CPS detected`;
     }
     console.log(msg);
-    // Notify all admins
     admins.forEach(adminId => {
       io.to(adminId).emit('admin_action_result', { ok: false, msg });
     });
