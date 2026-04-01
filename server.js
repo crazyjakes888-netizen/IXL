@@ -72,7 +72,7 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   socket.on('auth', ({ username, password, isRegister }) => {
-    const uname = String(username).slice(0, 20).replace(/[<>&"']/g, '').trim();
+    const uname = String(username).slice(0, 50).replace(/[<>&"']/g, '').trim();
     if (!uname || !password) { socket.emit('auth_result', { ok: false, msg: 'Invalid input.' }); return; }
     const hash = hashPw(password);
     if (isRegister) {
