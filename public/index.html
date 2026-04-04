@@ -539,7 +539,7 @@
 
 <div id="join-screen">
   <div id="join-box">
-    <h2>🍪 Cookie Chat</h2>
+    <h2>🍪 IXL Math</h2>
     <input id="auth-username" type="text" placeholder="Username..." maxlength="50" autocomplete="username" />
     <input id="auth-password" type="password" placeholder="Password..." maxlength="50" autocomplete="current-password" />
     <button id="login-btn">Login / Create Account</button>
@@ -549,7 +549,7 @@
 
 <header>
   <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
-  🍪 COOKIE CHAT &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
+  🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
@@ -950,7 +950,7 @@
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
         li.innerHTML = `
-          <span class="lb-name">${i + 1}. ${p.name}</span>
+          <span class="lb-name">${i + 1}. ${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}</span>
           <span class="lb-score">${formatNum(p.cookies)}</span>
         `;
         list.appendChild(li);
@@ -971,7 +971,7 @@
         const li = document.createElement('li');
         li.innerHTML = `
           <span class="lbm-rank">${i + 1}.</span>
-          <span class="lbm-name${p.name === myName ? ' me' : ''}">${p.name}</span>
+          <span class="lbm-name${p.name === myName ? ' me' : ''}">${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}</span>
           <span class="lbm-score">${formatNum(p.cookies)}</span>
         `;
         ul.appendChild(li);
@@ -1256,6 +1256,11 @@
 
   document.getElementById('login-btn').addEventListener('click', () => doAuth(false));
   document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(false); });
+
+  socket0.on('force_logout', (msg) => {
+    alert(msg || 'You were logged in from another location.');
+    location.reload();
+  });
 
   socket0.on('auth_result', ({ ok, msg, username, cookies: savedCookies, owned: savedOwned }) => {
     if (!ok) {

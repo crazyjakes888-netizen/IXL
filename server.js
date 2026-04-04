@@ -84,14 +84,23 @@ io.on('connection', (socket) => {
       // New account — auto-create
       accounts[uname] = { hash, cookies: 0, owned: {} };
       saveAccounts();
-      socket._authedName = uname;
-      socket.emit('auth_result', { ok: true, username: uname, cookies: 0, owned: {} });
     } else if (acc.hash !== hash) {
       socket.emit('auth_result', { ok: false, msg: 'Wrong password.' });
-    } else {
-      socket._authedName = uname;
-      socket.emit('auth_result', { ok: true, username: uname, cookies: acc.cookies || 0, owned: acc.owned || {} });
+      return;
     }
+
+    // Kick any existing session for this username to prevent duplication
+    io.sockets.sockets.forEach((existingSock, sid) => {
+      if (sid !== socket.id && existingSock._authedName === uname) {
+        existingSock.emit('force_logout', 'You were logged in from another location.');
+        if (players[sid]) delete players[sid];
+        existingSock.disconnect(true);
+      }
+    });
+
+    socket._authedName = uname;
+    const finalAcc = accounts[uname];
+    socket.emit('auth_result', { ok: true, username: uname, cookies: finalAcc.cookies || 0, owned: finalAcc.owned || {} });
   });
 
   socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked }) => {
@@ -340,14 +349,36 @@ function getPlayerList() {
 }
 
 function getLeaderboard() {
-  const cutoff = Date.now() - 30000; // drop players with no update in 30s
-  return Object.values(players)
-    .filter(p => !p.lastActive || p.lastActive > cutoff)
-    .sort((a, b) => b.cookies - a.cookies)
-    .map(p => ({ name: p.name, cookies: p.cookies, cps: p.cps }));
+  // Deduplicate online players by name (take highest cookie count per name)
+  const onlineMap = {};
+  Object.values(players).forEach(p => {
+    if (!onlineMap[p.name] || p.cookies > onlineMap[p.name].cookies) {
+      onlineMap[p.name] = p;
+    }
+  });
+
+  // Start with all saved accounts as base entries
+  const entryMap = {};
+  Object.entries(accounts).forEach(([name, acc]) => {
+    entryMap[name] = { name, cookies: acc.cookies || 0, cps: 0, online: false };
+  });
+
+  // Overlay live data for online players
+  Object.entries(onlineMap).forEach(([name, p]) => {
+    if (entryMap[name]) {
+      entryMap[name].cookies = Math.max(entryMap[name].cookies, p.cookies);
+      entryMap[name].cps = p.cps;
+      entryMap[name].online = true;
+    } else {
+      entryMap[name] = { name, cookies: p.cookies, cps: p.cps, online: true };
+    }
+  });
+
+  return Object.values(entryMap)
+    .sort((a, b) => b.cookies - a.cookies);
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Cookie Chat running at http://localhost:${PORT}`);
+  console.log(`IXL Math running at http://localhost:${PORT}`);
 });
