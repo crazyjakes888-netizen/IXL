@@ -814,14 +814,14 @@
   ];
 
   const POWERUPS = [
-    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× CPS for 60s',           cost: 50000,      cpsBoost: 2,   clickBoost: 1,   duration: 60000  },
-    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     cpsBoost: 1,   clickBoost: 10,  duration: 30000  },
-    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× CPS for 45s',            cost: 500000,     cpsBoost: 5,   clickBoost: 1,   duration: 45000  },
-    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× CPS for 20s',           cost: 2000000,    cpsBoost: 10,  clickBoost: 1,   duration: 20000  },
-    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    cpsBoost: 1,   clickBoost: 50,  duration: 15000  },
-    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× CPS & click for 15s',   cost: 10000000,   cpsBoost: 20,  clickBoost: 20,  duration: 15000  },
-    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× CPS for 10s',          cost: 50000000,   cpsBoost: 100, clickBoost: 1,   duration: 10000  },
-    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× everything for 8s',    cost: 500000000,  cpsBoost: 500, clickBoost: 500, duration: 8000   },
+    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× click for 60s',          cost: 50000,      clickBoost: 2,   duration: 60000  },
+    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     clickBoost: 10,  duration: 30000  },
+    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× click for 45s',          cost: 500000,     clickBoost: 5,   duration: 45000  },
+    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× click for 20s',         cost: 2000000,    clickBoost: 10,  duration: 20000  },
+    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    clickBoost: 50,  duration: 15000  },
+    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× click for 15s',         cost: 10000000,   clickBoost: 20,  duration: 15000  },
+    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× click for 10s',        cost: 50000000,   clickBoost: 100, duration: 10000  },
+    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× click for 8s',         cost: 500000000,  clickBoost: 500, duration: 8000   },
   ];
 
   const ATTACKS = [
@@ -855,9 +855,8 @@
   }
 
   function rebuildMultipliers() {
-    cpsMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.cpsBoost, 1);
-    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.clickBoost, 1);
-    recalcCps();
+    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * (b.clickBoost || 1), 1);
+    // cpsMultiplier intentionally not affected by power-ups (clicks only)
   }
 
   function getClickPower() {
@@ -936,7 +935,7 @@
       btn.addEventListener('click', () => {
         if (cookies < pu.cost || activePUBoosts[pu.id]) return;
         cookies -= pu.cost;
-        activePUBoosts[pu.id] = { cpsBoost: pu.cpsBoost, clickBoost: pu.clickBoost };
+        activePUBoosts[pu.id] = { clickBoost: pu.clickBoost || 1 };
         rebuildMultipliers();
         btn.disabled = true;
         let remaining = Math.ceil(pu.duration / 1000);
