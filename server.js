@@ -20,6 +20,7 @@ const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
+const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 
 const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
 let accounts = {};
@@ -106,6 +107,7 @@ io.on('connection', (socket) => {
   socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked }) => {
     if (!players[socket.id]) return;
     const name = players[socket.id].name;
+    if (acWhitelist.has(name)) return; // whitelisted — ignore all reports
     let msg;
     if (locked) {
       msg = `🔒 [AUTOCLICKER] ${name} LOCKED for 10s — clicking ${cps} CPS`;
@@ -149,7 +151,7 @@ io.on('connection', (socket) => {
     }
     const isRejoining = !!recentlyLeft[safeName];
     // Don't delete — keep suppressing until the 30s timer expires naturally
-    players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, ip };
+    players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, lastAttack: 0, ip };
 
     socket.emit('joined', { id: socket.id, name: safeName });
     io.emit('leaderboard', getLeaderboard());
@@ -163,6 +165,8 @@ io.on('connection', (socket) => {
     }
     // Restore admin status if they were admin before
     if (adminNames.has(safeName)) admins.add(socket.id);
+    // Restore autoclicker whitelist status
+    if (acWhitelist.has(safeName)) socket.emit('ac_whitelisted');
   });
 
   socket.on('update_score', ({ cookies, cps }) => {
@@ -237,14 +241,34 @@ io.on('connection', (socket) => {
   });
 
   // Attack
+  const ATTACK_COOLDOWN_MS = 15000; // 15 seconds between attacks
+  const ATTACK_MIN_CPS = 100000;    // must earn 100K/sec to attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
     const COSTS = { freeze10: 3000, freeze20: 12000, freeze30: 35000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, steal10k: 10000, steal100k: 100000, steal1m: 1000000 };
     const cost = COSTS[attackId];
     if (!cost) return;
     if (players[socket.id].cookies < cost) return;
+
+    // CPS requirement
+    if (players[socket.id].cps < ATTACK_MIN_CPS) {
+      socket.emit('attack_error', { msg: '⚠️ You need at least 100K cookies/sec to attack!', refund: cost });
+      return;
+    }
+
+    // Cooldown check
+    const now = Date.now();
+    const sinceLastAttack = now - (players[socket.id].lastAttack || 0);
+    if (sinceLastAttack < ATTACK_COOLDOWN_MS) {
+      const secsLeft = Math.ceil((ATTACK_COOLDOWN_MS - sinceLastAttack) / 1000);
+      socket.emit('attack_error', { msg: `⏳ Attack on cooldown! Wait ${secsLeft}s.`, refund: cost });
+      return;
+    }
+
     const target = Object.entries(players).find(([,p]) => p.name === targetName);
-    if (!target) return;
+    if (!target) { socket.emit('attack_error', { msg: '❌ Target not found.', refund: cost }); return; }
+
+    players[socket.id].lastAttack = now;
     players[socket.id].cookies -= cost;
     io.to(target[0]).emit('attack_hit', { attackId, attackerName: players[socket.id].name });
     io.emit('chat', {
@@ -352,6 +376,22 @@ io.on('connection', (socket) => {
     }
     socket.emit('admin_action_result', { ok: true, msg: `Deleted account: ${targetName}` });
     io.emit('leaderboard', getLeaderboard());
+  });
+
+  socket.on('admin_autowhite', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    acWhitelist.add(targetName);
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (entry) io.to(entry[0]).emit('ac_whitelisted');
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} is now autoclicker-whitelisted.` });
+  });
+
+  socket.on('admin_autoblack', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    acWhitelist.delete(targetName);
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (entry) io.to(entry[0]).emit('ac_blacklisted');
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} removed from autoclicker whitelist.` });
   });
 
   socket.on('admin_wipe_upgrades', (targetName) => {

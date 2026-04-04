@@ -152,6 +152,18 @@
     .attack-btn .atk-desc { font-size: 0.7rem; color: #ff9999; margin-top: 2px; }
     .attack-btn .atk-cost { font-size: 0.75rem; color: #ffaaaa; margin-top: 3px; }
 
+    /* Attack error */
+    #attack-error-msg {
+      font-size: 0.8rem; color: #ff7777;
+      min-height: 18px; text-align: center;
+      animation: fadeout 3s forwards;
+    }
+    @keyframes fadeout {
+      0%   { opacity: 1; }
+      60%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
     /* Debuffs */
     #debuffs-display {
       display: flex; flex-wrap: wrap; gap: 6px;
@@ -710,6 +722,7 @@
       <span style="color:#aaa;font-size:0.8rem;">Target:</span>
       <select id="attack-target"><option value="">— pick player —</option></select>
     </div>
+    <div id="attack-error-msg"></div>
     <div id="attacks"></div>
   </div>
 
@@ -937,8 +950,8 @@
       `;
       btn.addEventListener('click', () => {
         const target = document.getElementById('attack-target').value;
-        if (!target) { alert('Pick a target first!'); return; }
-        if (target === myName) { alert("You can't attack yourself!"); return; }
+        if (!target) { showAttackError('Pick a target first!'); return; }
+        if (target === myName) { showAttackError("You can't attack yourself!"); return; }
         if (cookies >= atk.cost && socket) {
           cookies -= atk.cost;
           socket.emit('attack', { attackId: atk.id, targetName: target });
@@ -1018,12 +1031,22 @@
     document.getElementById('cps-display').textContent = formatNum(totalCps) + ' cookies/sec';
   }
 
+  function showAttackError(msg) {
+    const el = document.getElementById('attack-error-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.animation = 'none';
+    void el.offsetWidth; // reflow to restart animation
+    el.style.animation = 'fadeout 3s forwards';
+  }
+
   // ---- Auto-clicker detection ----
   const clickTimes = [];
   let acFlagged = false;
   let acFlagStart = null;
   let acLocked = false;
   let acHighCpsSeconds = 0;
+  let acWhitelisted = false;
 
   function showFlagBanner(visible) {
     let banner = document.getElementById('ac-banner');
@@ -1041,6 +1064,7 @@
   }
 
   function lockCookieBtn() {
+    if (acWhitelisted) return;
     acLocked = true;
     const btn = document.getElementById('cookie-btn');
     btn.disabled = true;
@@ -1063,7 +1087,7 @@
   }
 
   function checkAutoClicker() {
-    if (acLocked) return;
+    if (acLocked || acWhitelisted) return;
     const now = Date.now();
     while (clickTimes.length && now - clickTimes[0] > 3000) clickTimes.shift();
     const cps = clickTimes.length / 3;
@@ -1316,6 +1340,14 @@
       msgs.scrollTop = msgs.scrollHeight;
     });
 
+    socket.on('attack_error', ({ msg, refund }) => {
+      if (refund) { cookies += refund; updateDisplay(); updateButtons(); }
+      showAttackError(msg);
+    });
+
+    socket.on('ac_whitelisted', () => { acWhitelisted = true; });
+    socket.on('ac_blacklisted', () => { acWhitelisted = false; });
+
     socket.on('pay_result', ({ ok, msg }) => {
       const resEl = document.getElementById('pay-result');
       resEl.style.color = ok ? '#44ff88' : '#ff5555';
@@ -1463,6 +1495,8 @@
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
       adminLog('/setpassword (newpassword)      — change admin password', 'alog-warn');
+      adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
+      adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1510,6 +1544,12 @@
     } else if (cmd === '/setpassword') {
       if (!parts[1]) { adminLog('Usage: /setpassword (newpassword)', 'alog-err'); return; }
       socket.emit('admin_setpassword', parts[1]);
+    } else if (cmd === '/autowhite') {
+      if (!parts[1]) { adminLog('Usage: /autowhite (name)', 'alog-err'); return; }
+      socket.emit('admin_autowhite', parts[1]);
+    } else if (cmd === '/autoblack') {
+      if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
+      socket.emit('admin_autoblack', parts[1]);
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
