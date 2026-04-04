@@ -82,6 +82,13 @@ io.on('connection', (socket) => {
     const hash = hashPw(password);
     const acc = accounts[uname];
     if (!acc) {
+      // Check for case-insensitive name collision
+      const lname = uname.toLowerCase();
+      const collision = Object.keys(accounts).find(k => k.toLowerCase() === lname);
+      if (collision) {
+        socket.emit('auth_result', { ok: false, msg: 'That username is already taken.' });
+        return;
+      }
       // New account — auto-create
       accounts[uname] = { hash, cookies: 0, owned: {} };
       saveAccounts();
