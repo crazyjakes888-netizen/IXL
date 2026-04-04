@@ -1242,9 +1242,48 @@
     setTimeout(() => pop.remove(), 800);
   });
 
+  // ---- AFK detection ----
+  const AFK_MS = 10 * 60 * 1000; // 10 minutes
+  let lastActivity = Date.now();
+  let afkFrozen = false;
+
+  function resetActivity() {
+    lastActivity = Date.now();
+    if (afkFrozen) unfreeze();
+  }
+
+  function unfreeze() {
+    afkFrozen = false;
+    const overlay = document.getElementById('afk-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  function showAfkOverlay() {
+    if (document.getElementById('afk-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'afk-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#000000cc;z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;';
+    overlay.innerHTML = '<div style="font-size:3rem">💤</div><div style="color:#fff;font-size:1.4rem;font-weight:bold;">You\'re AFK!</div><div style="color:#aaa;font-size:0.9rem;">Cookie production paused. Click to resume.</div>';
+    overlay.addEventListener('click', () => { resetActivity(); });
+    document.body.appendChild(overlay);
+  }
+
+  // Track any meaningful interaction as activity
+  ['click','keydown','mousemove','touchstart'].forEach(evt => {
+    document.addEventListener(evt, () => { if (myName) resetActivity(); }, { passive: true });
+  });
+
   // ---- Game loop ----
   let drainAmount = 0; // active curse drain per tick
   setInterval(() => {
+    // AFK check
+    if (myName && !afkFrozen && Date.now() - lastActivity > AFK_MS) {
+      afkFrozen = true;
+      showAfkOverlay();
+    }
+
+    if (afkFrozen) return; // production paused while AFK
+
     let gained = totalCps / 20;
     if (drainAmount > 0) gained -= drainAmount / 20;
     if (gained !== 0) {
