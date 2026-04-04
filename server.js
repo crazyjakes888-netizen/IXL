@@ -104,19 +104,19 @@ io.on('connection', (socket) => {
     socket.emit('auth_result', { ok: true, username: uname, cookies: finalAcc.cookies || 0, owned: finalAcc.owned || {} });
   });
 
-  socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked }) => {
+  socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked, reason }) => {
     if (!players[socket.id]) return;
     const name = players[socket.id].name;
-    if (acWhitelist.has(name)) return; // whitelisted — ignore all reports
+    if (acWhitelist.has(name)) return;
     let msg;
     if (locked) {
-      msg = `🔒 [AUTOCLICKER] ${name} LOCKED for 10s — clicking ${cps} CPS`;
+      msg = `🔒 [AC] ${name} LOCKED 10s — ${cps} CPS${reason ? ' | reason: ' + reason : ''}`;
     } else if (unlocked) {
-      msg = `🔓 [AUTOCLICKER] ${name} unlocked after 10s cooldown`;
+      msg = `🔓 [AC] ${name} unlocked`;
     } else if (ended) {
-      msg = `⚠️ [AUTOCLICKER] ${name} stopped — was clicking ${cps} CPS for ${duration}s`;
+      msg = `⚠️ [AC] ${name} stopped — ${cps} CPS for ${duration}s`;
     } else {
-      msg = `🚨 [AUTOCLICKER] ${name} suspicious! ${cps} CPS detected`;
+      msg = `🚨 [AC] ${name} suspicious — ${cps} CPS${reason ? ' | ' + reason : ''}`;
     }
     console.log(msg);
     admins.forEach(adminId => {

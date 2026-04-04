@@ -1042,11 +1042,32 @@
 
   // ---- Auto-clicker detection ----
   const clickTimes = [];
+  const interClickGaps = [];   // ms between consecutive clicks
+  const cpsHistory = [];       // CPS reading each second (last 30s)
+  let lastClickTime = 0;
+
   let acFlagged = false;
   let acFlagStart = null;
   let acLocked = false;
   let acHighCpsSeconds = 0;
   let acWhitelisted = false;
+
+  // On/off cycling state
+  let acLastCpsWasZero = true;
+  let acOnOffCount = 0;
+  let acOnOffResetTimer = null;
+
+  // Sustained consistent-CPS state
+  let acSustainedMidSecs = 0;
+
+  function acStdDev(arr) {
+    if (arr.length < 2) return 999;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    return Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length);
+  }
+  function acMean(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
 
   function showFlagBanner(visible) {
     let banner = document.getElementById('ac-banner');
@@ -1055,7 +1076,7 @@
         banner = document.createElement('div');
         banner.id = 'ac-banner';
         banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#ff2222;color:#fff;font-weight:bold;font-size:1rem;padding:12px 24px;border-radius:8px;z-index:9999;text-align:center;box-shadow:0 0 20px #ff000088;';
-        banner.textContent = '🚫 You have been flagged for auto clicking! Locked for 10s.';
+        banner.textContent = '🚫 Auto-click detected! Locked for 10s.';
         document.body.appendChild(banner);
       }
     } else {
@@ -1063,7 +1084,7 @@
     }
   }
 
-  function lockCookieBtn() {
+  function lockCookieBtn(reason) {
     if (acWhitelisted) return;
     acLocked = true;
     const btn = document.getElementById('cookie-btn');
@@ -1072,12 +1093,16 @@
     btn.textContent = '🚫';
     showFlagBanner(true);
     if (socket && myName) {
-      socket.emit('autoclicker_report', { cps: (clickTimes.length / 3).toFixed(1), locked: true });
+      socket.emit('autoclicker_report', { cps: (clickTimes.length / 3).toFixed(1), locked: true, reason });
     }
     setTimeout(() => {
       acLocked = false;
       acHighCpsSeconds = 0;
+      acSustainedMidSecs = 0;
+      acOnOffCount = 0;
       clickTimes.length = 0;
+      interClickGaps.length = 0;
+      cpsHistory.length = 0;
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.textContent = '🍪';
@@ -1089,18 +1114,74 @@
   function checkAutoClicker() {
     if (acLocked || acWhitelisted) return;
     const now = Date.now();
+
+    // Sliding 3s window for current CPS
     while (clickTimes.length && now - clickTimes[0] > 3000) clickTimes.shift();
     const cps = clickTimes.length / 3;
+
+    // Record CPS history (last 30 readings)
+    cpsHistory.push(cps);
+    if (cpsHistory.length > 30) cpsHistory.shift();
+
+    // --- 1. Raw high CPS (unchanged) ---
     if (cps >= 30) {
       acHighCpsSeconds++;
-      if (acHighCpsSeconds >= 3) lockCookieBtn();
+      if (acHighCpsSeconds >= 3) { lockCookieBtn('sustained high CPS'); return; }
     } else {
       acHighCpsSeconds = 0;
     }
+
+    // --- 2. Inter-click interval consistency ---
+    // Bots have very uniform gaps; humans vary wildly.
+    if (interClickGaps.length >= 15) {
+      const mean = acMean(interClickGaps);
+      const sd   = acStdDev(interClickGaps);
+      const cv   = sd / mean; // coefficient of variation
+      // Rapid AND suspiciously uniform (CV < 0.20 at 8+ CPS)
+      if (mean < 125 && cv < 0.20) {
+        lockCookieBtn('mechanical interval pattern (CV=' + cv.toFixed(2) + ')');
+        return;
+      }
+    }
+
+    // --- 3. On/off cycling ---
+    // Detects toggling autoclicker on and off to evade sustained-rate checks.
+    if (cps === 0 && !acLastCpsWasZero) {
+      acLastCpsWasZero = true;
+    } else if (cps >= 8 && acLastCpsWasZero) {
+      acLastCpsWasZero = false;
+      acOnOffCount++;
+      if (!acOnOffResetTimer) {
+        acOnOffResetTimer = setTimeout(() => { acOnOffCount = 0; acOnOffResetTimer = null; }, 60000);
+      }
+      if (acOnOffCount >= 5) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
+    }
+
+    // --- 4. Sustained mid-range CPS with low variance ---
+    // Catches randomised autoclickers that stay between 8–28 CPS for a long time.
+    if (cps >= 8 && cps < 30) {
+      acSustainedMidSecs++;
+      if (acSustainedMidSecs >= 20 && cpsHistory.length >= 15) {
+        const recent = cpsHistory.slice(-15);
+        const mean = acMean(recent);
+        const cv   = acStdDev(recent) / (mean || 1);
+        if (mean >= 8 && cv < 0.35) {
+          lockCookieBtn('sustained consistent CPS (mean=' + mean.toFixed(1) + ' cv=' + cv.toFixed(2) + ')');
+          return;
+        }
+      }
+    } else {
+      acSustainedMidSecs = 0;
+    }
+
+    // --- Admin reporting (flag when suspicious, un-flag when normal) ---
     if (cps >= 15 && !acFlagged) {
       acFlagged = true;
       acFlagStart = now;
-      if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1) });
+      const reason = interClickGaps.length >= 15
+        ? 'cv=' + (acStdDev(interClickGaps) / acMean(interClickGaps)).toFixed(2)
+        : '';
+      if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1), reason });
     } else if (cps < 15 && acFlagged) {
       const duration = ((now - acFlagStart) / 1000).toFixed(0);
       if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1), ended: true, duration });
@@ -1112,7 +1193,13 @@
 
   // ---- Cookie click ----
   document.getElementById('cookie-btn').addEventListener('click', (e) => {
-    clickTimes.push(Date.now());
+    const now = Date.now();
+    if (lastClickTime > 0 && now - lastClickTime < 2000) {
+      interClickGaps.push(now - lastClickTime);
+      if (interClickGaps.length > 40) interClickGaps.shift();
+    }
+    lastClickTime = now;
+    clickTimes.push(now);
     const power = getClickPower();
     cookies += power;
     updateDisplay();
