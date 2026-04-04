@@ -172,6 +172,13 @@ io.on('connection', (socket) => {
     players[socket.id].lastActive = Date.now();
   });
 
+  socket.on('set_name_color', (color) => {
+    if (!players[socket.id]) return;
+    // Only allow valid hex colors
+    const safe = /^#[0-9a-fA-F]{6}$/.test(String(color)) ? String(color) : null;
+    players[socket.id].nameColor = safe;
+  });
+
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
     const ip = players[socket.id]?.ip || getIP(socket);
@@ -190,8 +197,10 @@ io.on('connection', (socket) => {
     );
     if (!safeMsg.trim()) return;
     const filteredMsg = filterMsg(safeMsg);
+    const filteredName = filterMsg(players[socket.id].name);
     io.emit('chat', {
-      name: players[socket.id].name,
+      name: filteredName,
+      nameColor: players[socket.id].nameColor || null,
       msg: filteredMsg,
       time: Date.now()
     });
@@ -310,13 +319,52 @@ io.on('connection', (socket) => {
 
   socket.on('admin_wipeaccount', (targetName) => {
     if (!admins.has(socket.id)) return;
-    if (accounts[targetName]) {
-      delete accounts[targetName];
-      saveAccounts();
-      socket.emit('admin_action_result', { ok: true, msg: `Wiped account: ${targetName}` });
-    } else {
+    if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
+      return;
     }
+    accounts[targetName].cookies = 0;
+    accounts[targetName].owned = {};
+    saveAccounts();
+    // Reset live session if online
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (entry) {
+      players[entry[0]].cookies = 0;
+      io.to(entry[0]).emit('admin_reset_you');
+    }
+    socket.emit('admin_action_result', { ok: true, msg: `Wiped cookies & upgrades for: ${targetName}` });
+  });
+
+  socket.on('admin_delaccount', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    if (!accounts[targetName]) {
+      socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
+      return;
+    }
+    delete accounts[targetName];
+    saveAccounts();
+    // Kick live session if online
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (entry) {
+      io.to(entry[0]).emit('force_logout', 'Your account has been deleted by an admin.');
+      delete players[entry[0]];
+      io.sockets.sockets.get(entry[0])?.disconnect(true);
+    }
+    socket.emit('admin_action_result', { ok: true, msg: `Deleted account: ${targetName}` });
+    io.emit('leaderboard', getLeaderboard());
+  });
+
+  socket.on('admin_wipe_upgrades', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    if (!accounts[targetName]) {
+      socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
+      return;
+    }
+    accounts[targetName].owned = {};
+    saveAccounts();
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (entry) io.to(entry[0]).emit('admin_wipe_upgrades_you');
+    socket.emit('admin_action_result', { ok: true, msg: `Wiped all upgrades for: ${targetName}` });
   });
 
   socket.on('admin_ipban', ({ ip, duration }) => {

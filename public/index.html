@@ -564,6 +564,13 @@
 
     #chat-send:hover { background: #555; }
 
+    #name-color-picker {
+      width: 28px; height: 28px;
+      border: 1px solid #555; border-radius: 4px;
+      padding: 1px; cursor: pointer;
+      background: none; flex-shrink: 0;
+    }
+
     /* Click popups */
     .click-pop {
       position: fixed;
@@ -715,6 +722,7 @@
       <h3>💬 Chat</h3>
       <div id="chat-messages"></div>
       <div id="chat-input-row">
+        <input id="name-color-picker" type="color" value="#aaaaff" title="Change your name color in chat" />
         <input id="chat-input" type="text" placeholder="Say something..." maxlength="200" />
         <button id="chat-send">Send</button>
       </div>
@@ -1140,6 +1148,17 @@
     socket.emit('join', name);
     document.getElementById('name-display').textContent = name;
 
+    // Load saved name color and wire up color picker
+    const savedColor = localStorage.getItem('cc_color_' + name) || '#aaaaff';
+    const colorPicker = document.getElementById('name-color-picker');
+    colorPicker.value = savedColor;
+    socket.emit('set_name_color', savedColor);
+    colorPicker.addEventListener('input', () => {
+      const c = colorPicker.value;
+      localStorage.setItem('cc_color_' + name, c);
+      socket.emit('set_name_color', c);
+    });
+
     socket.io.on('reconnect', () => {
       socket.emit('join', name);
     });
@@ -1216,14 +1235,15 @@
       if (secs !== 'muted') setTimeout(() => { input.placeholder = 'Say something...'; }, secs * 1000);
     });
 
-    socket.on('chat', ({ system, name, msg, time }) => {
+    socket.on('chat', ({ system, name, nameColor, msg, time }) => {
       const msgs = document.getElementById('chat-messages');
       const div = document.createElement('div');
       div.className = 'chat-msg' + (system ? ' system' : '');
       if (system) {
         div.textContent = msg;
       } else {
-        div.innerHTML = `<span class="chat-name">${name}:</span> ${msg}`;
+        const color = nameColor || '#aaaaff';
+        div.innerHTML = `<span class="chat-name" style="color:${color}">${name}:</span> ${msg}`;
       }
       msgs.appendChild(div);
       msgs.scrollTop = msgs.scrollHeight;
@@ -1324,6 +1344,11 @@
       cookies = 0; totalCps = 0;
       Object.keys(owned).forEach(k => owned[k] = 0);
       recalcCps(); updateDisplay(); updateButtons();
+    });
+
+    socket.on('admin_wipe_upgrades_you', () => {
+      Object.keys(owned).forEach(k => owned[k] = 0);
+      recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
@@ -1431,7 +1456,9 @@
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
       adminLog('/ipban (ip) (sec|perm)         — ban by IP', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
-      adminLog('/wipeaccount (name)            — delete account', 'alog-warn');
+      adminLog('/wipeaccount (name)            — wipe coins & upgrades (keep account)', 'alog-warn');
+      adminLog('/wipeupgrades (name)           — wipe upgrades only', 'alog-warn');
+      adminLog('/delaccount (name)             — fully delete account + kick', 'alog-warn');
       adminLog('/cookie add (name) (amount)    — give cookies', 'alog-warn');
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
@@ -1460,6 +1487,12 @@
     } else if (cmd === '/wipeaccount') {
       if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
       socket.emit('admin_wipeaccount', parts[1]);
+    } else if (cmd === '/wipeupgrades') {
+      if (!parts[1]) { adminLog('Usage: /wipeupgrades (name)', 'alog-err'); return; }
+      socket.emit('admin_wipe_upgrades', parts[1]);
+    } else if (cmd === '/delaccount') {
+      if (!parts[1]) { adminLog('Usage: /delaccount (name)', 'alog-err'); return; }
+      socket.emit('admin_delaccount', parts[1]);
     } else if (cmd === '/cookie') {
       const action = parts[1];
       if (action === 'add') {
