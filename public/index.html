@@ -461,15 +461,30 @@
     #pay-send-btn:hover { background: #336633; }
     #pay-result { font-size: 0.85rem; min-height: 18px; text-align: center; }
 
-    /* Pay button in header */
-    #pay-btn {
-      position: absolute;
-      right: 90px; top: 50%; transform: translateY(-50%);
-      background: #2a4a2a; color: #88ff88;
-      border: 1px solid #448844; border-radius: 6px;
-      padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
+    /* Cookie + Pay row */
+    #cookie-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
-    #pay-btn:hover { background: #336633; }
+
+    /* Pay button next to cookie */
+    #pay-btn {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #2a6a2a, #144414);
+      border: 3px solid #448844;
+      color: #88ff88;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      line-height: 1.2;
+      transition: transform 0.08s, box-shadow 0.08s;
+      box-shadow: 0 0 16px #00880033;
+    }
+    #pay-btn:hover { background: radial-gradient(circle at 40% 35%, #336633, #1a5a1a); transform: scale(1.05); }
+    #pay-btn:active { transform: scale(0.93); }
 
     /* === RIGHT PANEL === */
     #right-panel {
@@ -656,7 +671,6 @@
 <header>
   <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
-  <button id="pay-btn" title="Pay a player">💰 Pay</button>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
@@ -711,7 +725,10 @@
   <div id="game-panel">
     <div id="cookie-count">0 cookies</div>
     <div id="cps-display">0 cookies/sec</div>
-    <button id="cookie-btn" title="Click me!">🍪</button>
+    <div id="cookie-row">
+      <button id="cookie-btn" title="Click me!">🍪</button>
+      <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+    </div>
     <div id="upgrades-title">Upgrades</div>
     <div id="upgrades"></div>
     <div id="powerups-title">⚡ Power-Ups</div>
