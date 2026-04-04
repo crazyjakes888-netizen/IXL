@@ -1582,6 +1582,7 @@
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
       adminLog('/setpassword (newpassword)      — change admin password', 'alog-warn');
+      adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       return;
@@ -1631,6 +1632,8 @@
     } else if (cmd === '/setpassword') {
       if (!parts[1]) { adminLog('Usage: /setpassword (newpassword)', 'alog-err'); return; }
       socket.emit('admin_setpassword', parts[1]);
+    } else if (cmd === '/wipeall') {
+      socket.emit('admin_wipeall');
     } else if (cmd === '/autowhite') {
       if (!parts[1]) { adminLog('Usage: /autowhite (name)', 'alog-err'); return; }
       socket.emit('admin_autowhite', parts[1]);

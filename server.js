@@ -401,6 +401,23 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `${targetName} removed from autoclicker whitelist.` });
   });
 
+  socket.on('admin_wipeall', () => {
+    if (!admins.has(socket.id)) return;
+    // Wipe every account in storage
+    Object.keys(accounts).forEach(name => {
+      accounts[name].cookies = 0;
+      accounts[name].owned = {};
+    });
+    saveAccounts();
+    // Reset all live sessions
+    Object.keys(players).forEach(sid => {
+      players[sid].cookies = 0;
+      io.to(sid).emit('admin_reset_you');
+    });
+    socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
+    io.emit('leaderboard', getLeaderboard());
+  });
+
   socket.on('admin_wipe_upgrades', (targetName) => {
     if (!admins.has(socket.id)) return;
     if (!accounts[targetName]) {
