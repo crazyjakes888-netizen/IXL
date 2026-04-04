@@ -351,18 +351,20 @@
       border: 1px solid #333;
       border-radius: 8px;
       padding: 8px 10px;
+      padding-right: 22px;
       cursor: pointer;
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
+      position: relative;
     }
 
-    .upgrade-btn:hover:not(:disabled) {
+    .upgrade-btn:hover:not(.disabled) {
       border-color: #666;
       background: #2a2a2a;
     }
 
-    .upgrade-btn:disabled {
+    .upgrade-btn.disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
@@ -371,6 +373,91 @@
     .upgrade-btn .upg-desc { font-size: 0.7rem; color: #aaaaaa; margin-top: 2px; }
     .upgrade-btn .upg-cost { font-size: 0.75rem; color: #ffffff; margin-top: 3px; }
     .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; }
+
+    .upg-sell-btn {
+      position: absolute;
+      top: 3px; right: 3px;
+      background: #1a1010;
+      border: 1px solid #442222;
+      color: #995555;
+      border-radius: 3px;
+      width: 16px; height: 16px;
+      font-size: 0.6rem;
+      cursor: pointer;
+      padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .upg-sell-btn:hover:not(:disabled) { background: #aa2222; color: #fff; border-color: #ff4444; }
+    .upg-sell-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+    /* Power-ups section */
+    #powerups-title {
+      font-size: 0.8rem; color: #ffcc44;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    #powerups {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px; width: 100%;
+    }
+    .powerup-btn {
+      background: #1a1a10;
+      border: 1px solid #554422;
+      border-radius: 8px; padding: 8px 10px;
+      cursor: pointer; color: #e0e0e0; text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .powerup-btn:hover:not(:disabled) { border-color: #ffcc44; background: #2a2a10; }
+    .powerup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .powerup-btn .pu-name { font-weight: bold; font-size: 0.8rem; color: #ffdd88; }
+    .powerup-btn .pu-desc { font-size: 0.68rem; color: #ccaa66; margin-top: 2px; }
+    .powerup-btn .pu-cost { font-size: 0.72rem; color: #fff; margin-top: 3px; }
+    .powerup-btn .pu-timer { font-size: 0.68rem; color: #ffcc44; margin-top: 2px; font-weight: bold; min-height: 14px; }
+
+    /* Pay modal */
+    #pay-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000000bb; z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #pay-modal-overlay.open { display: flex; }
+    #pay-modal {
+      background: #1a1a1a; border: 1px solid #444;
+      border-radius: 10px; width: 340px; max-width: 95vw;
+      padding: 0; overflow: hidden;
+    }
+    #pay-modal-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid #333;
+      font-weight: bold; font-size: 1rem; color: #fff;
+    }
+    #pay-modal-close { background: none; border: none; color: #aaa; font-size: 1.2rem; cursor: pointer; }
+    #pay-modal-close:hover { color: #fff; }
+    #pay-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    #pay-target, #pay-amount {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid #444; background: #111; color: #e0e0e0;
+      font-size: 0.9rem; outline: none;
+    }
+    #pay-send-btn {
+      padding: 10px; background: #2a5a2a; border: 1px solid #448844;
+      color: #fff; border-radius: 6px; cursor: pointer;
+      font-size: 0.9rem; font-weight: bold;
+    }
+    #pay-send-btn:hover { background: #336633; }
+    #pay-result { font-size: 0.85rem; min-height: 18px; text-align: center; }
+
+    /* Pay button in header */
+    #pay-btn {
+      position: absolute;
+      right: 90px; top: 50%; transform: translateY(-50%);
+      background: #2a4a2a; color: #88ff88;
+      border: 1px solid #448844; border-radius: 6px;
+      padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
+    }
+    #pay-btn:hover { background: #336633; }
 
     /* === RIGHT PANEL === */
     #right-panel {
@@ -550,8 +637,25 @@
 <header>
   <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
+  <button id="pay-btn" title="Pay a player">💰 Pay</button>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
+
+<!-- Pay Modal -->
+<div id="pay-modal-overlay">
+  <div id="pay-modal">
+    <div id="pay-modal-header">
+      💰 Pay a Player
+      <button id="pay-modal-close">✕</button>
+    </div>
+    <div id="pay-modal-body">
+      <select id="pay-target"><option value="">— select player —</option></select>
+      <input id="pay-amount" type="number" placeholder="Amount of cookies..." min="1" />
+      <button id="pay-send-btn">Send Cookies</button>
+      <div id="pay-result"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Full Leaderboard Modal -->
 <div id="lb-modal-overlay">
@@ -591,6 +695,8 @@
     <button id="cookie-btn" title="Click me!">🍪</button>
     <div id="upgrades-title">Upgrades</div>
     <div id="upgrades"></div>
+    <div id="powerups-title">⚡ Power-Ups</div>
+    <div id="powerups"></div>
     <div id="debuffs-display"></div>
     <div id="attacks-title">⚔️ Attacks</div>
     <div id="attack-target-row">
@@ -647,7 +753,27 @@
     { id: 'omnclick',   name: '💥 Omni Click',     desc: '+1000 click',       baseCost: 50000000, clickPower: 1000, cps: 0 },
     { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec (frost)',    baseCost: 4000,     clickPower: 0,    cps: 8 },
     { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec (frost)',   baseCost: 30000,    clickPower: 0,    cps: 40 },
-    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,   clickPower: 0,    cps: 150 },
+    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,    clickPower: 0,    cps: 150 },
+    // OP Tier
+    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+2K/sec',           baseCost: 8000000,   clickPower: 0,    cps: 2000 },
+    { id: 'megaportal', name: '🌐 Mega Portal',     desc: '+25K/sec',          baseCost: 1e8,       clickPower: 0,    cps: 25000 },
+    { id: 'quantumcpu', name: '🧬 Quantum CPU',     desc: '+200K/sec',         baseCost: 5e9,       clickPower: 0,    cps: 200000 },
+    { id: 'darkmatter', name: '🖤 Dark Matter',     desc: '+1M/sec',           baseCost: 5e10,      clickPower: 0,    cps: 1000000 },
+    { id: 'multiverse', name: '🌌 Multiverse',      desc: '+5M/sec',           baseCost: 2.5e11,    clickPower: 0,    cps: 5000000 },
+    { id: 'cookiegod',  name: '👑 Cookie God',      desc: '+20M/sec',          baseCost: 1e12,      clickPower: 0,    cps: 20000000 },
+    { id: 'hyperclk',   name: '🚀 Hyper Click',     desc: '+10K click',        baseCost: 1e8,       clickPower: 10000, cps: 0 },
+    { id: 'godsmash',   name: '⚡ God Smash',       desc: '+100K click',       baseCost: 1e10,      clickPower: 100000, cps: 0 },
+  ];
+
+  const POWERUPS = [
+    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× CPS for 60s',           cost: 50000,      cpsBoost: 2,   clickBoost: 1,   duration: 60000  },
+    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     cpsBoost: 1,   clickBoost: 10,  duration: 30000  },
+    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× CPS for 45s',            cost: 500000,     cpsBoost: 5,   clickBoost: 1,   duration: 45000  },
+    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× CPS for 20s',           cost: 2000000,    cpsBoost: 10,  clickBoost: 1,   duration: 20000  },
+    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    cpsBoost: 1,   clickBoost: 50,  duration: 15000  },
+    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× CPS & click for 15s',   cost: 10000000,   cpsBoost: 20,  clickBoost: 20,  duration: 15000  },
+    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× CPS for 10s',          cost: 50000000,   cpsBoost: 100, clickBoost: 1,   duration: 10000  },
+    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× everything for 8s',    cost: 500000000,  cpsBoost: 500, clickBoost: 500, duration: 8000   },
   ];
 
   const ATTACKS = [
@@ -664,6 +790,9 @@
   ];
 
   const activeDebuffs = {}; // { type: clearTimeout }
+  const activePUBoosts = {}; // { puId: { cpsBoost, clickBoost } }
+  let cpsMultiplier = 1;
+  let clickMultiplier = 1;
 
   const owned = {};
   UPGRADES.forEach(u => owned[u.id] = 0);
@@ -672,12 +801,23 @@
     return Math.floor(upg.baseCost * Math.pow(1.15, owned[upg.id]));
   }
 
+  function getSellValue(upg) {
+    if (owned[upg.id] <= 0) return 0;
+    return Math.floor(0.3 * upg.baseCost * Math.pow(1.15, owned[upg.id] - 1));
+  }
+
+  function rebuildMultipliers() {
+    cpsMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.cpsBoost, 1);
+    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.clickBoost, 1);
+    recalcCps();
+  }
+
   function getClickPower() {
-    return 1 + UPGRADES.filter(u => u.clickPower > 0).reduce((acc, u) => acc + u.clickPower * owned[u.id], 0);
+    return clickMultiplier * (1 + UPGRADES.filter(u => u.clickPower > 0).reduce((acc, u) => acc + u.clickPower * owned[u.id], 0));
   }
 
   function recalcCps() {
-    totalCps = UPGRADES.filter(u => u.cps > 0).reduce((acc, u) => acc + u.cps * owned[u.id], 0);
+    totalCps = cpsMultiplier * UPGRADES.filter(u => u.cps > 0).reduce((acc, u) => acc + u.cps * owned[u.id], 0);
   }
 
   function formatNum(n) {
@@ -694,16 +834,19 @@
     const container = document.getElementById('upgrades');
     container.innerHTML = '';
     UPGRADES.forEach(upg => {
-      const btn = document.createElement('button');
-      btn.className = 'upgrade-btn';
-      btn.id = 'upg-' + upg.id;
-      btn.innerHTML = `
+      const card = document.createElement('div');
+      card.className = 'upgrade-btn';
+      card.id = 'upg-' + upg.id;
+      card.innerHTML = `
         <div class="upg-name">${upg.name}</div>
         <div class="upg-desc">${upg.desc}</div>
         <div class="upg-cost" id="upg-cost-${upg.id}">🍪 ${formatNum(getCost(upg))}</div>
         <div class="upg-owned" id="upg-owned-${upg.id}">owned: 0</div>
+        <button class="upg-sell-btn" id="upg-sell-${upg.id}" title="Sell for 30%" disabled>✕</button>
       `;
-      btn.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.upg-sell-btn')) return;
+        if (card.classList.contains('disabled')) return;
         const cost = getCost(upg);
         if (cookies >= cost) {
           cookies -= cost;
@@ -713,6 +856,60 @@
           updateDisplay();
           saveProgress();
         }
+      });
+      card.querySelector('.upg-sell-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (owned[upg.id] <= 0) return;
+        const refund = getSellValue(upg);
+        owned[upg.id]--;
+        cookies += refund;
+        recalcCps();
+        updateButtons();
+        updateDisplay();
+        saveProgress();
+      });
+      container.appendChild(card);
+    });
+  }
+
+  function buildPowerups() {
+    const container = document.getElementById('powerups');
+    container.innerHTML = '';
+    POWERUPS.forEach(pu => {
+      const btn = document.createElement('button');
+      btn.className = 'powerup-btn';
+      btn.id = 'pu-' + pu.id;
+      btn.innerHTML = `
+        <div class="pu-name">${pu.name}</div>
+        <div class="pu-desc">${pu.desc}</div>
+        <div class="pu-cost">🍪 ${formatNum(pu.cost)}</div>
+        <div class="pu-timer" id="pu-timer-${pu.id}"></div>
+      `;
+      btn.addEventListener('click', () => {
+        if (cookies < pu.cost || activePUBoosts[pu.id]) return;
+        cookies -= pu.cost;
+        activePUBoosts[pu.id] = { cpsBoost: pu.cpsBoost, clickBoost: pu.clickBoost };
+        rebuildMultipliers();
+        btn.disabled = true;
+        let remaining = Math.ceil(pu.duration / 1000);
+        const timerEl = document.getElementById('pu-timer-' + pu.id);
+        if (timerEl) timerEl.textContent = remaining + 's';
+        const iv = setInterval(() => {
+          remaining--;
+          if (timerEl) timerEl.textContent = remaining > 0 ? remaining + 's' : '';
+        }, 1000);
+        setTimeout(() => {
+          clearInterval(iv);
+          delete activePUBoosts[pu.id];
+          rebuildMultipliers();
+          btn.disabled = cookies < pu.cost;
+          if (timerEl) timerEl.textContent = '';
+          updateDisplay();
+          updateButtons();
+        }, pu.duration);
+        updateDisplay();
+        updateButtons();
+        saveProgress();
       });
       container.appendChild(btn);
     });
@@ -749,16 +946,25 @@
   function updateButtons() {
     UPGRADES.forEach(upg => {
       const cost = getCost(upg);
-      const btn = document.getElementById('upg-' + upg.id);
-      if (!btn) return;
-      btn.disabled = cookies < cost;
-      document.getElementById('upg-cost-' + upg.id).textContent = '🍪 ' + formatNum(cost);
-      document.getElementById('upg-owned-' + upg.id).textContent = 'owned: ' + owned[upg.id];
+      const card = document.getElementById('upg-' + upg.id);
+      if (!card) return;
+      card.classList.toggle('disabled', cookies < cost);
+      const costEl = document.getElementById('upg-cost-' + upg.id);
+      const ownedEl = document.getElementById('upg-owned-' + upg.id);
+      const sellBtn = document.getElementById('upg-sell-' + upg.id);
+      if (costEl) costEl.textContent = '🍪 ' + formatNum(cost);
+      if (ownedEl) ownedEl.textContent = 'owned: ' + owned[upg.id] + (owned[upg.id] > 0 ? ' (sell: ' + formatNum(getSellValue(upg)) + ')' : '');
+      if (sellBtn) sellBtn.disabled = owned[upg.id] <= 0;
     });
     ATTACKS.forEach(atk => {
       const btn = document.getElementById('atk-' + atk.id);
       if (!btn) return;
       btn.disabled = cookies < atk.cost;
+    });
+    POWERUPS.forEach(pu => {
+      const btn = document.getElementById('pu-' + pu.id);
+      if (!btn) return;
+      if (!activePUBoosts[pu.id]) btn.disabled = cookies < pu.cost;
     });
   }
 
@@ -962,6 +1168,17 @@
       }
 
       updateTargetList(lb);
+
+      // Also update pay target list (online players only)
+      const paySelect = document.getElementById('pay-target');
+      const prevPay = paySelect.value;
+      paySelect.innerHTML = '<option value="">— select player —</option>';
+      lb.filter(p => p.online && p.name !== myName).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name; opt.textContent = p.name;
+        if (p.name === prevPay) opt.selected = true;
+        paySelect.appendChild(opt);
+      });
     });
 
     function renderModalLeaderboard() {
@@ -1075,6 +1292,30 @@
       const div = document.createElement('div');
       div.className = 'chat-msg system';
       div.textContent = `⚔️ ${attackerName} attacked you with ${attackId}!`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    });
+
+    socket.on('pay_result', ({ ok, msg }) => {
+      const resEl = document.getElementById('pay-result');
+      resEl.style.color = ok ? '#44ff88' : '#ff5555';
+      resEl.textContent = msg;
+      if (ok) {
+        updateDisplay();
+        updateButtons();
+        saveProgress();
+      }
+    });
+
+    socket.on('pay_received', ({ fromName, amount }) => {
+      cookies += amount;
+      updateDisplay();
+      updateButtons();
+      saveProgress();
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      div.textContent = `💰 ${fromName} sent you ${formatNum(amount)} cookies!`;
       msgs.appendChild(div);
       msgs.scrollTop = msgs.scrollHeight;
     });
@@ -1300,8 +1541,31 @@
     if (e.key === 'Enter') sendChat();
   });
 
+  // ---- Pay modal ----
+  document.getElementById('pay-btn').addEventListener('click', () => {
+    document.getElementById('pay-result').textContent = '';
+    document.getElementById('pay-modal-overlay').classList.add('open');
+  });
+  document.getElementById('pay-modal-close').addEventListener('click', () => {
+    document.getElementById('pay-modal-overlay').classList.remove('open');
+  });
+  document.getElementById('pay-modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('pay-modal-overlay'))
+      document.getElementById('pay-modal-overlay').classList.remove('open');
+  });
+  document.getElementById('pay-send-btn').addEventListener('click', () => {
+    if (!socket) return;
+    const targetName = document.getElementById('pay-target').value;
+    const amount = parseInt(document.getElementById('pay-amount').value, 10);
+    const resEl = document.getElementById('pay-result');
+    if (!targetName) { resEl.style.color = '#ff5555'; resEl.textContent = 'Pick a player.'; return; }
+    if (!amount || amount < 1) { resEl.style.color = '#ff5555'; resEl.textContent = 'Enter a valid amount.'; return; }
+    socket.emit('pay_player', { targetName, amount });
+  });
+
   // ---- Init (before login) ----
   buildUpgrades();
+  buildPowerups();
   buildAttacks();
   updateDisplay();
 </script>

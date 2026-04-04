@@ -197,6 +197,36 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Pay a player
+  socket.on('pay_player', ({ targetName, amount }) => {
+    if (!players[socket.id]) return;
+    const amt = Math.max(1, Math.floor(Number(amount) || 0));
+    if (players[socket.id].cookies < amt) {
+      socket.emit('pay_result', { ok: false, msg: 'Not enough cookies.' });
+      return;
+    }
+    const target = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (!target) {
+      socket.emit('pay_result', { ok: false, msg: `${targetName} is not online.` });
+      return;
+    }
+    if (target[0] === socket.id) {
+      socket.emit('pay_result', { ok: false, msg: "You can't pay yourself." });
+      return;
+    }
+    players[socket.id].cookies -= amt;
+    players[target[0]].cookies += amt;
+    const fromName = players[socket.id].name;
+    const amtStr = amt >= 1e12 ? (amt / 1e12).toFixed(1) + 'T'
+                 : amt >= 1e9  ? (amt / 1e9).toFixed(1)  + 'B'
+                 : amt >= 1e6  ? (amt / 1e6).toFixed(1)  + 'M'
+                 : amt >= 1e3  ? (amt / 1e3).toFixed(1)  + 'K'
+                 : String(amt);
+    io.to(target[0]).emit('pay_received', { fromName, amount: amt });
+    socket.emit('pay_result', { ok: true, msg: `Sent 🍪 ${amtStr} to ${targetName}!` });
+    io.emit('chat', { system: true, msg: `💸 ${fromName} paid ${amtStr} cookies to ${targetName}!`, time: Date.now() });
+  });
+
   // Attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
