@@ -1289,6 +1289,8 @@
 
     socket.io.on('reconnect', () => {
       socket.emit('join', name);
+      const c = localStorage.getItem('cc_color_' + name) || '#aaaaff';
+      socket.emit('set_name_color', c);
     });
 
     let fullLeaderboard = [];
