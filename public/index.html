@@ -508,6 +508,9 @@
       background: #181818;
       padding: 12px;
       border-bottom: 2px solid #2a2a2a;
+      overflow-y: auto;
+      flex-shrink: 0;
+      max-height: 50%;
     }
 
     #leaderboard h3 {
@@ -1305,10 +1308,9 @@
     socket.on('leaderboard', (lb) => {
       fullLeaderboard = lb;
 
-      // Sidebar: top 10 only
       const list = document.getElementById('lb-list');
       list.innerHTML = '';
-      lb.slice(0, 10).forEach((p, i) => {
+      lb.forEach((p, i) => {
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
         li.innerHTML = `
