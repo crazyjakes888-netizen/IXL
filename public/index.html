@@ -463,12 +463,19 @@
 
     /* Cookie + Pay row */
     #cookie-row {
+      position: relative;
       display: flex;
       align-items: center;
-      gap: 16px;
+      justify-content: center;
+      width: 100%;
     }
 
-    /* Pay button next to cookie */
+    #pay-btn {
+      position: absolute;
+      left: calc(50% + 70px);
+    }
+
+    /* Pay button styles */
     #pay-btn {
       width: 80px; height: 80px;
       border-radius: 50%;
