@@ -693,7 +693,7 @@
     </div>
     <div id="pay-modal-body">
       <select id="pay-target"><option value="">— select player —</option></select>
-      <input id="pay-amount" type="number" placeholder="Amount of cookies..." min="1" />
+      <input id="pay-amount" type="text" placeholder="e.g. 1k, 5m, 2b, 1t..." />
       <button id="pay-send-btn">Send Cookies</button>
       <div id="pay-result"></div>
     </div>
@@ -1467,12 +1467,8 @@
       const resEl = document.getElementById('pay-result');
       resEl.style.color = ok ? '#44ff88' : '#ff5555';
       resEl.textContent = msg;
-      if (ok) {
-        cookies -= (amount || 0);
-        updateDisplay();
-        updateButtons();
-        saveProgress();
-      }
+      if (!ok && amount) { cookies += amount; } // refund if rejected
+      updateDisplay(); updateButtons(); saveProgress();
     });
 
     socket.on('pay_received', ({ fromName, amount }) => {
@@ -1745,13 +1741,25 @@
     if (e.target === document.getElementById('pay-modal-overlay'))
       document.getElementById('pay-modal-overlay').classList.remove('open');
   });
+  function parseShorthand(str) {
+    str = String(str).trim().toLowerCase().replace(/,/g, '');
+    const m = str.match(/^(\d+\.?\d*)([kmbt]?)$/);
+    if (!m) return 0;
+    const n = parseFloat(m[1]);
+    const mult = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[m[2]] || 1;
+    return Math.floor(n * mult);
+  }
+
   document.getElementById('pay-send-btn').addEventListener('click', () => {
     if (!socket) return;
     const targetName = document.getElementById('pay-target').value;
-    const amount = parseInt(document.getElementById('pay-amount').value, 10);
+    const amount = parseShorthand(document.getElementById('pay-amount').value);
     const resEl = document.getElementById('pay-result');
     if (!targetName) { resEl.style.color = '#ff5555'; resEl.textContent = 'Pick a player.'; return; }
-    if (!amount || amount < 1) { resEl.style.color = '#ff5555'; resEl.textContent = 'Enter a valid amount.'; return; }
+    if (!amount || amount < 1) { resEl.style.color = '#ff5555'; resEl.textContent = 'Enter a valid amount (e.g. 1k, 5m, 2b).'; return; }
+    if (amount > cookies) { resEl.style.color = '#ff5555'; resEl.textContent = 'Not enough cookies.'; return; }
+    cookies -= amount;
+    updateDisplay(); updateButtons();
     socket.emit('pay_player', { targetName, amount });
   });
 
