@@ -1488,7 +1488,7 @@
     socket.on('admin_reset_you', () => {
       cookies = 0; totalCps = 0;
       Object.keys(owned).forEach(k => owned[k] = 0);
-      recalcCps(); updateDisplay(); updateButtons();
+      recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
     socket.on('admin_wipe_upgrades_you', () => {
