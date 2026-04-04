@@ -243,8 +243,7 @@ io.on('connection', (socket) => {
                  : amt >= 1e3  ? (amt / 1e3).toFixed(1)  + 'K'
                  : String(amt);
     io.to(target[0]).emit('pay_received', { fromName, amount: amt });
-    socket.emit('pay_result', { ok: true, msg: `Sent 🍪 ${amtStr} to ${targetName}!` });
-    io.emit('chat', { system: true, msg: `💸 ${fromName} paid ${amtStr} cookies to ${targetName}!`, time: Date.now() });
+    socket.emit('pay_result', { ok: true, msg: `Sent 🍪 ${amtStr} to ${targetName}!`, amount: amt });
   });
 
   // Attack
@@ -278,11 +277,6 @@ io.on('connection', (socket) => {
     players[socket.id].lastAttack = now;
     players[socket.id].cookies -= cost;
     io.to(target[0]).emit('attack_hit', { attackId, attackerName: players[socket.id].name });
-    io.emit('chat', {
-      system: true,
-      msg: `⚔️ ${players[socket.id].name} used ${attackId} on ${targetName}!`,
-      time: Date.now()
-    });
   });
 
   // Admin login

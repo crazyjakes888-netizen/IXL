@@ -1463,11 +1463,12 @@
     socket.on('ac_whitelisted', () => { acWhitelisted = true; });
     socket.on('ac_blacklisted', () => { acWhitelisted = false; });
 
-    socket.on('pay_result', ({ ok, msg }) => {
+    socket.on('pay_result', ({ ok, msg, amount }) => {
       const resEl = document.getElementById('pay-result');
       resEl.style.color = ok ? '#44ff88' : '#ff5555';
       resEl.textContent = msg;
       if (ok) {
+        cookies -= (amount || 0);
         updateDisplay();
         updateButtons();
         saveProgress();
