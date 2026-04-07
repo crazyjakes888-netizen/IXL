@@ -1541,7 +1541,7 @@
       recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
-    socket.on('jumpscare', () => {
+    socket.on('jumpscare', ({ volume } = {}) => {
       // Flashbang: white blinding flash with grenade emoji
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:25vw;transition:opacity 1.5s;';
@@ -1553,7 +1553,7 @@
 
       // Flashbang sound
       const snd = new Audio('/flashbang-SoundEffectPro.mp3');
-      snd.volume = 0.125;
+      snd.volume = volume === 'loud' ? 0.8 : volume === 'quiet' ? 0.05 : 0.125;
       snd.currentTime = 1.2;
       snd.play().catch(() => {});
 
@@ -1674,7 +1674,7 @@
       adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
-      adminLog('/jumpscare (name)              — blast meme jumpscare at a player', 'alog-warn');
+      adminLog('/jumpscare (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1731,8 +1731,9 @@
       if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
       socket.emit('admin_autoblack', parts[1]);
     } else if (cmd === '/jumpscare') {
-      if (!parts[1]) { adminLog('Usage: /jumpscare (name)', 'alog-err'); return; }
-      socket.emit('admin_jumpscare', parts[1]);
+      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet]', 'alog-err'); return; }
+      const vol = ['loud','medium','quiet'].includes(parts[2]) ? parts[2] : 'medium';
+      socket.emit('admin_jumpscare', { targetName: parts[1], volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
