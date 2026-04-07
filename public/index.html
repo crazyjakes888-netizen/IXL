@@ -1553,7 +1553,7 @@
 
       // Flashbang sound
       const snd = new Audio('/flashbang-SoundEffectPro.mp3');
-      snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : 0.25;
+      snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
       snd.currentTime = 1.7;
       snd.play().catch(() => {});
 
@@ -1732,7 +1732,7 @@
       socket.emit('admin_autoblack', parts[1]);
     } else if (cmd === '/jumpscare') {
       if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet]', 'alog-err'); return; }
-      const vol = ['loud','medium','quiet'].includes(parts[2]) ? parts[2] : 'medium';
+      const vol = ['loud','medium','quiet','lol'].includes(parts[2]) ? parts[2] : 'medium';
       socket.emit('admin_jumpscare', { targetName: parts[1], volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
