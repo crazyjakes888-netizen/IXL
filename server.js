@@ -428,7 +428,7 @@ io.on('connection', (socket) => {
 
   socket.on('admin_jumpscare', (targetName) => {
     if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('jumpscare');
     socket.emit('admin_action_result', { ok: true, msg: `💀 Jumpscared ${targetName}` });
