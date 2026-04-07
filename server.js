@@ -22,7 +22,8 @@ const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 
-const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 let accounts = {};
 try { accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8')); } catch(e) {}
 function saveAccounts() {
@@ -248,7 +249,7 @@ io.on('connection', (socket) => {
 
   // Attack
   const ATTACK_COOLDOWN_MS = 15000; // 15 seconds between attacks
-  const ATTACK_MIN_CPS = 100000;    // must earn 100K/sec to attack
+  const ATTACK_MIN_CPS = 1000;       // must earn 1K/sec to attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
     const COSTS = { freeze10: 3000, freeze20: 12000, freeze30: 35000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, steal10k: 10000, steal100k: 100000, steal1m: 1000000 };
@@ -258,7 +259,7 @@ io.on('connection', (socket) => {
 
     // CPS requirement
     if (players[socket.id].cps < ATTACK_MIN_CPS) {
-      socket.emit('attack_error', { msg: '⚠️ You need at least 100K cookies/sec to attack!', refund: cost });
+      socket.emit('attack_error', { msg: '⚠️ You need at least 1K cookies/sec to attack!', refund: cost });
       return;
     }
 
