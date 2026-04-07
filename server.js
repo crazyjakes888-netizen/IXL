@@ -449,6 +449,14 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  socket.on('admin_kick', (targetName) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('kicked');
+    socket.emit('admin_action_result', { ok: true, msg: `👢 Kicked ${targetName}` });
+  });
+
   socket.on('admin_ban', ({ name, duration }) => {
     if (!admins.has(socket.id)) return;
     const isPerm = duration === 'perm';
