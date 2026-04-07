@@ -1533,6 +1533,39 @@
       recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
+    socket.on('jumpscare', () => {
+      // Flash overlay
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:#ff0000;z-index:99999;opacity:0.9;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:20vw;';
+      overlay.textContent = '😱';
+      document.body.appendChild(overlay);
+      setTimeout(() => overlay.remove(), 800);
+
+      // Loud "FAH" sound via Web Audio
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // Bass boom
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.connect(gain1); gain1.connect(ctx.destination);
+        osc1.frequency.setValueAtTime(80, ctx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
+        gain1.gain.setValueAtTime(3, ctx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc1.start(ctx.currentTime); osc1.stop(ctx.currentTime + 0.6);
+        // High screech
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sawtooth';
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.setValueAtTime(1200, ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.3);
+        gain2.gain.setValueAtTime(2, ctx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.4);
+      } catch(e) {}
+    });
+
     socket.on('admin_cookie_change', ({ amount, action }) => {
       if (action === 'add') cookies += amount;
       else cookies = Math.max(0, cookies - amount);
@@ -1648,6 +1681,7 @@
       adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
+      adminLog('/jumpscare (name)              — blast meme jumpscare at a player', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1703,6 +1737,9 @@
     } else if (cmd === '/autoblack') {
       if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
       socket.emit('admin_autoblack', parts[1]);
+    } else if (cmd === '/jumpscare') {
+      if (!parts[1]) { adminLog('Usage: /jumpscare (name)', 'alog-err'); return; }
+      socket.emit('admin_jumpscare', parts[1]);
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
