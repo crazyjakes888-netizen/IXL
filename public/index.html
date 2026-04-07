@@ -1159,49 +1159,47 @@
     cpsHistory.push(cps);
     if (cpsHistory.length > 30) cpsHistory.shift();
 
-    // --- 1. Raw high CPS (unchanged) ---
-    if (cps >= 30) {
+    // --- 1. Raw high CPS ---
+    if (cps >= 35) {
       acHighCpsSeconds++;
-      if (acHighCpsSeconds >= 3) { lockCookieBtn('sustained high CPS'); return; }
+      if (acHighCpsSeconds >= 4) { lockCookieBtn('sustained high CPS'); return; }
     } else {
       acHighCpsSeconds = 0;
     }
 
     // --- 2. Inter-click interval consistency ---
-    // Bots have very uniform gaps; humans vary wildly.
-    if (interClickGaps.length >= 15) {
+    // Only flag extremely uniform rapid clicking (CV < 0.10 = less than 10% variation)
+    // Raised from 0.20 so trackpad/fast human clicking isn't falsely flagged
+    if (interClickGaps.length >= 20) {
       const mean = acMean(interClickGaps);
       const sd   = acStdDev(interClickGaps);
-      const cv   = sd / mean; // coefficient of variation
-      // Rapid AND suspiciously uniform (CV < 0.20 at 8+ CPS)
-      if (mean < 125 && cv < 0.20) {
+      const cv   = sd / mean;
+      if (mean < 80 && cv < 0.10) {
         lockCookieBtn('mechanical interval pattern (CV=' + cv.toFixed(2) + ')');
         return;
       }
     }
 
     // --- 3. On/off cycling ---
-    // Detects toggling autoclicker on and off to evade sustained-rate checks.
     if (cps === 0 && !acLastCpsWasZero) {
       acLastCpsWasZero = true;
-    } else if (cps >= 8 && acLastCpsWasZero) {
+    } else if (cps >= 10 && acLastCpsWasZero) {
       acLastCpsWasZero = false;
       acOnOffCount++;
       if (!acOnOffResetTimer) {
         acOnOffResetTimer = setTimeout(() => { acOnOffCount = 0; acOnOffResetTimer = null; }, 60000);
       }
-      if (acOnOffCount >= 5) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
+      if (acOnOffCount >= 8) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
     }
 
-    // --- 4. Sustained mid-range CPS with low variance ---
-    // Catches randomised autoclickers that stay between 8–28 CPS for a long time.
-    if (cps >= 8 && cps < 30) {
+    // --- 4. Sustained mid-range CPS with very low variance ---
+    if (cps >= 10 && cps < 35) {
       acSustainedMidSecs++;
-      if (acSustainedMidSecs >= 20 && cpsHistory.length >= 15) {
-        const recent = cpsHistory.slice(-15);
+      if (acSustainedMidSecs >= 30 && cpsHistory.length >= 20) {
+        const recent = cpsHistory.slice(-20);
         const mean = acMean(recent);
         const cv   = acStdDev(recent) / (mean || 1);
-        if (mean >= 8 && cv < 0.35) {
+        if (mean >= 10 && cv < 0.20) {
           lockCookieBtn('sustained consistent CPS (mean=' + mean.toFixed(1) + ' cv=' + cv.toFixed(2) + ')');
           return;
         }
