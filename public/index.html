@@ -1553,53 +1553,11 @@
       requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
       setTimeout(() => overlay.remove(), 2000);
 
-      // Flashbang sound: deep bass boom then ear ringing
-      try {
-        const ctx = getAudioCtx();
-        const playSound = () => {
-          const t = ctx.currentTime;
+      // Flashbang sound
+      const snd = new Audio('/flashbang.wav');
+      snd.volume = 1.0;
+      snd.play().catch(() => {});
 
-          // Bass boom — 180Hz drops to 80Hz, audible on iPad speakers
-          const boom = ctx.createOscillator();
-          const boomGain = ctx.createGain();
-          boom.frequency.setValueAtTime(180, t);
-          boom.frequency.exponentialRampToValueAtTime(80, t + 0.4);
-          boomGain.gain.setValueAtTime(5, t);
-          boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-          boom.connect(boomGain); boomGain.connect(ctx.destination);
-          boom.start(t); boom.stop(t + 0.5);
-
-          // Noise crack — impact punch
-          const bufSize = ctx.sampleRate * 0.15;
-          const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-          const data = buf.getChannelData(0);
-          for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-          const noise = ctx.createBufferSource();
-          noise.buffer = buf;
-          const noiseGain = ctx.createGain();
-          noiseGain.gain.setValueAtTime(4, t);
-          noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-          noise.connect(noiseGain); noiseGain.connect(ctx.destination);
-          noise.start(t); noise.stop(t + 0.15);
-
-          // Ear ringing tinnitus
-          const ring = ctx.createOscillator();
-          const ringGain = ctx.createGain();
-          ring.frequency.setValueAtTime(6500, t + 0.2);
-          ring.frequency.linearRampToValueAtTime(4800, t + 4);
-          ringGain.gain.setValueAtTime(0, t + 0.2);
-          ringGain.gain.linearRampToValueAtTime(1.5, t + 0.4);
-          ringGain.gain.exponentialRampToValueAtTime(0.001, t + 4);
-          ring.connect(ringGain); ringGain.connect(ctx.destination);
-          ring.start(t + 0.2); ring.stop(t + 4);
-        };
-
-        if (ctx.state === 'suspended') {
-          ctx.resume().then(playSound);
-        } else {
-          playSound();
-        }
-      } catch(e) {}
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
