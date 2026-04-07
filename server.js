@@ -408,6 +408,14 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all upgrades for: ${targetName}` });
   });
 
+  socket.on('admin_jumpscare', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('jumpscare');
+    socket.emit('admin_action_result', { ok: true, msg: `💀 Jumpscared ${targetName}` });
+  });
+
   socket.on('admin_ipban', ({ ip, duration }) => {
     if (!admins.has(socket.id)) return;
     const isPerm = duration === 'perm';
