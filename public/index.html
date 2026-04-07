@@ -778,6 +778,16 @@
   let myName = '';
   let socket;
 
+  // Pre-unlock Web Audio on first touch so jumpscare sound works on mobile
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  document.addEventListener('touchstart', () => getAudioCtx(), { once: true, passive: true });
+  document.addEventListener('click',      () => getAudioCtx(), { once: true, passive: true });
+
   const UPGRADES = [
     { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
     { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
@@ -1545,32 +1555,40 @@
 
       // Flashbang sound: sharp bang + long high-pitched ringing tinnitus
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = getAudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
         const t = ctx.currentTime;
 
-        // Sharp bang — white noise burst
-        const bufSize = ctx.sampleRate * 0.1;
+        // Clipping distortion via WaveShaper for extra crunch
+        const distortion = ctx.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; curve[i] = Math.tanh(x * 20); }
+        distortion.curve = curve;
+        distortion.connect(ctx.destination);
+
+        // Sharp bang — full-second white noise burst, very loud
+        const bufSize = ctx.sampleRate * 0.25;
         const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
         const noise = ctx.createBufferSource();
         noise.buffer = buf;
         const bangGain = ctx.createGain();
-        bangGain.gain.setValueAtTime(8, t);
-        bangGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-        noise.connect(bangGain); bangGain.connect(ctx.destination);
-        noise.start(t); noise.stop(t + 0.12);
+        bangGain.gain.setValueAtTime(30, t);
+        bangGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        noise.connect(bangGain); bangGain.connect(distortion);
+        noise.start(t); noise.stop(t + 0.25);
 
         // High-pitched ringing that slowly fades (tinnitus)
         const ring = ctx.createOscillator();
         const ringGain = ctx.createGain();
-        ring.frequency.setValueAtTime(6000, t);
-        ring.frequency.linearRampToValueAtTime(4500, t + 3);
+        ring.frequency.setValueAtTime(6500, t + 0.05);
+        ring.frequency.linearRampToValueAtTime(4500, t + 4);
         ringGain.gain.setValueAtTime(0, t);
-        ringGain.gain.linearRampToValueAtTime(2.5, t + 0.05);
-        ringGain.gain.exponentialRampToValueAtTime(0.001, t + 3);
+        ringGain.gain.linearRampToValueAtTime(3, t + 0.1);
+        ringGain.gain.exponentialRampToValueAtTime(0.001, t + 4);
         ring.connect(ringGain); ringGain.connect(ctx.destination);
-        ring.start(t); ring.stop(t + 3);
+        ring.start(t); ring.stop(t + 4);
       } catch(e) {}
     });
 
