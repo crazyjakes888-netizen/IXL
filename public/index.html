@@ -1553,42 +1553,52 @@
       requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
       setTimeout(() => overlay.remove(), 2000);
 
-      // Flashbang sound: sharp bang + long high-pitched ringing tinnitus
+      // Flashbang sound: deep bass boom then ear ringing
       try {
         const ctx = getAudioCtx();
         if (ctx.state === 'suspended') ctx.resume();
         const t = ctx.currentTime;
 
-        // Clipping distortion via WaveShaper for extra crunch
-        const distortion = ctx.createWaveShaper();
-        const curve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; curve[i] = Math.tanh(x * 20); }
-        distortion.curve = curve;
-        distortion.connect(ctx.destination);
+        // Deep bass boom — low sine that punches then decays
+        const boom = ctx.createOscillator();
+        const boomGain = ctx.createGain();
+        const bassFilter = ctx.createBiquadFilter();
+        bassFilter.type = 'lowpass';
+        bassFilter.frequency.value = 120;
+        bassFilter.Q.value = 8;
+        boom.frequency.setValueAtTime(60, t);
+        boom.frequency.exponentialRampToValueAtTime(25, t + 0.5);
+        boomGain.gain.setValueAtTime(4, t);
+        boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+        boom.connect(bassFilter); bassFilter.connect(boomGain); boomGain.connect(ctx.destination);
+        boom.start(t); boom.stop(t + 0.6);
 
-        // Sharp bang — full-second white noise burst, very loud
-        const bufSize = ctx.sampleRate * 0.25;
+        // White noise through low-pass to add body to the boom thud
+        const bufSize = ctx.sampleRate * 0.3;
         const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
         const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+        for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = ctx.createBufferSource();
         noise.buffer = buf;
-        const bangGain = ctx.createGain();
-        bangGain.gain.setValueAtTime(30, t);
-        bangGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-        noise.connect(bangGain); bangGain.connect(distortion);
-        noise.start(t); noise.stop(t + 0.25);
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 200;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(2, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
+        noise.start(t); noise.stop(t + 0.3);
 
-        // High-pitched ringing that slowly fades (tinnitus)
+        // Ear ringing tinnitus — starts after the boom
         const ring = ctx.createOscillator();
         const ringGain = ctx.createGain();
-        ring.frequency.setValueAtTime(6500, t + 0.05);
-        ring.frequency.linearRampToValueAtTime(4500, t + 4);
-        ringGain.gain.setValueAtTime(0, t);
-        ringGain.gain.linearRampToValueAtTime(3, t + 0.1);
+        ring.frequency.setValueAtTime(6500, t + 0.2);
+        ring.frequency.linearRampToValueAtTime(4800, t + 4);
+        ringGain.gain.setValueAtTime(0, t + 0.2);
+        ringGain.gain.linearRampToValueAtTime(1.5, t + 0.4);
         ringGain.gain.exponentialRampToValueAtTime(0.001, t + 4);
         ring.connect(ringGain); ringGain.connect(ctx.destination);
-        ring.start(t); ring.stop(t + 4);
+        ring.start(t + 0.2); ring.stop(t + 4);
       } catch(e) {}
     });
 
