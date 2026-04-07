@@ -438,9 +438,9 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
-      // Persist latest cookie count so it isn't lost if save_progress didn't arrive
-      if (accounts[name]) {
-        accounts[name].cookies = Math.max(accounts[name].cookies || 0, players[socket.id].cookies || 0);
+      // Persist latest cookie count on disconnect (save_progress fires every 1s so this is a safety net)
+      if (accounts[name] && players[socket.id].cookies > 0) {
+        accounts[name].cookies = players[socket.id].cookies;
         saveAccounts();
       }
       recentlyLeft[name] = Date.now();
