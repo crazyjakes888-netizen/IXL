@@ -1534,35 +1534,43 @@
     });
 
     socket.on('jumpscare', () => {
-      // Flash overlay
+      // Flashbang: white blinding flash with grenade emoji
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:#ff0000;z-index:99999;opacity:0.9;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:20vw;';
-      overlay.textContent = '😱';
+      overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:25vw;transition:opacity 1.5s;';
+      overlay.textContent = '💣';
       document.body.appendChild(overlay);
-      setTimeout(() => overlay.remove(), 800);
+      // Fade out slowly like a real flashbang
+      requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
+      setTimeout(() => overlay.remove(), 2000);
 
-      // Loud "FAH" sound via Web Audio
+      // Flashbang sound: sharp bang + long high-pitched ringing tinnitus
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        // Bass boom
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.connect(gain1); gain1.connect(ctx.destination);
-        osc1.frequency.setValueAtTime(80, ctx.currentTime);
-        osc1.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
-        gain1.gain.setValueAtTime(3, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-        osc1.start(ctx.currentTime); osc1.stop(ctx.currentTime + 0.6);
-        // High screech
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sawtooth';
-        osc2.connect(gain2); gain2.connect(ctx.destination);
-        osc2.frequency.setValueAtTime(1200, ctx.currentTime);
-        osc2.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.3);
-        gain2.gain.setValueAtTime(2, ctx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.4);
+        const t = ctx.currentTime;
+
+        // Sharp bang — white noise burst
+        const bufSize = ctx.sampleRate * 0.1;
+        const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+        const noise = ctx.createBufferSource();
+        noise.buffer = buf;
+        const bangGain = ctx.createGain();
+        bangGain.gain.setValueAtTime(8, t);
+        bangGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        noise.connect(bangGain); bangGain.connect(ctx.destination);
+        noise.start(t); noise.stop(t + 0.12);
+
+        // High-pitched ringing that slowly fades (tinnitus)
+        const ring = ctx.createOscillator();
+        const ringGain = ctx.createGain();
+        ring.frequency.setValueAtTime(6000, t);
+        ring.frequency.linearRampToValueAtTime(4500, t + 3);
+        ringGain.gain.setValueAtTime(0, t);
+        ringGain.gain.linearRampToValueAtTime(2.5, t + 0.05);
+        ringGain.gain.exponentialRampToValueAtTime(0.001, t + 3);
+        ring.connect(ringGain); ringGain.connect(ctx.destination);
+        ring.start(t); ring.stop(t + 3);
       } catch(e) {}
     });
 
