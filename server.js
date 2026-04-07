@@ -10,6 +10,18 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+
+// Beacon save — called by navigator.sendBeacon on page close, guaranteed delivery
+app.post('/save', (req, res) => {
+  const { username, cookies, owned } = req.body || {};
+  if (username && accounts[username]) {
+    accounts[username].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+    if (owned) accounts[username].owned = owned;
+    saveAccounts();
+  }
+  res.sendStatus(200);
+});
 
 const players = {};
 const recentlyLeft = {};        // name -> timestamp

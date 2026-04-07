@@ -1317,7 +1317,11 @@
   // Save every second
   setInterval(saveProgress, 1000);
   // Save when tab closes
-  window.addEventListener('beforeunload', saveProgress);
+  window.addEventListener('beforeunload', () => {
+    if (!myName) return;
+    // sendBeacon is guaranteed to fire even as the page closes
+    navigator.sendBeacon('/save', JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned }));
+  });
 
   // ---- Join ----
   function startGame(name, existingSocket) {
