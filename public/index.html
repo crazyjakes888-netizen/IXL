@@ -1554,6 +1554,7 @@
       // Flashbang sound
       const snd = new Audio('/flashbang-SoundEffectPro.mp3');
       snd.volume = 0.125;
+      snd.currentTime = 0.7;
       snd.play().catch(() => {});
 
     });
