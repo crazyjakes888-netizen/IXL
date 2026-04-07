@@ -1559,35 +1559,28 @@
         if (ctx.state === 'suspended') ctx.resume();
         const t = ctx.currentTime;
 
-        // Deep bass boom — low sine that punches then decays
+        // Bass boom — starts high enough for phone speakers, drops fast
         const boom = ctx.createOscillator();
         const boomGain = ctx.createGain();
-        const bassFilter = ctx.createBiquadFilter();
-        bassFilter.type = 'lowpass';
-        bassFilter.frequency.value = 120;
-        bassFilter.Q.value = 8;
-        boom.frequency.setValueAtTime(60, t);
-        boom.frequency.exponentialRampToValueAtTime(25, t + 0.5);
-        boomGain.gain.setValueAtTime(4, t);
-        boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-        boom.connect(bassFilter); bassFilter.connect(boomGain); boomGain.connect(ctx.destination);
-        boom.start(t); boom.stop(t + 0.6);
+        boom.frequency.setValueAtTime(180, t);
+        boom.frequency.exponentialRampToValueAtTime(80, t + 0.4);
+        boomGain.gain.setValueAtTime(5, t);
+        boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        boom.connect(boomGain); boomGain.connect(ctx.destination);
+        boom.start(t); boom.stop(t + 0.5);
 
-        // White noise through low-pass to add body to the boom thud
-        const bufSize = ctx.sampleRate * 0.3;
+        // Noise crack — adds the punch/impact to the boom
+        const bufSize = ctx.sampleRate * 0.15;
         const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = ctx.createBufferSource();
         noise.buffer = buf;
-        const noiseFilter = ctx.createBiquadFilter();
-        noiseFilter.type = 'lowpass';
-        noiseFilter.frequency.value = 200;
         const noiseGain = ctx.createGain();
-        noiseGain.gain.setValueAtTime(2, t);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-        noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
-        noise.start(t); noise.stop(t + 0.3);
+        noiseGain.gain.setValueAtTime(4, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+        noise.start(t); noise.stop(t + 0.15);
 
         // Ear ringing tinnitus — starts after the boom
         const ring = ctx.createOscillator();
