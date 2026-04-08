@@ -1628,6 +1628,8 @@
     document.getElementById('admin-login-bar').style.display = 'flex';
     document.getElementById('admin-output').style.display = 'none';
     document.getElementById('admin-cmd-bar').style.display = 'none';
+    const sub = document.getElementById('subadmin-cmd-bar');
+    if (sub) sub.style.display = 'none';
     document.getElementById('admin-error').style.display = 'none';
     document.getElementById('admin-pass').value = '';
     document.getElementById('admin-output').innerHTML = '';
@@ -1645,7 +1647,8 @@
 
   document.getElementById('admin-console-close').addEventListener('click', () => {
     document.getElementById('admin-console').style.display = 'none';
-    document.getElementById('subadmin-cmd-bar').style.display = 'none';
+    const sub = document.getElementById('subadmin-cmd-bar');
+    if (sub) sub.style.display = 'none';
   });
 
   document.getElementById('admin-submit').addEventListener('click', () => {
