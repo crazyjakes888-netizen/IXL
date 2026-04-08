@@ -307,16 +307,16 @@ io.on('connection', (socket) => {
   // Admin actions
   socket.on('admin_mute', (targetName) => {
     if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedIPs[entry[1].ip] = 'perm';
-    io.emit('chat', { system: true, msg: `🔇 ${targetName} was permanently muted.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Permanently muted ${targetName} (IP-locked).` });
+    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was permanently muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Permanently muted ${entry[1].name} (IP-locked).` });
   });
 
   socket.on('admin_unmute', (targetName) => {
     if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     delete mutedIPs[entry[1].ip];
     io.emit('chat', { system: true, msg: `🔊 ${targetName} was unmuted.`, time: Date.now() });
