@@ -30,6 +30,8 @@ const mutedIPs = {}; // ip -> expiry or 'perm'
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
+const SUB_ADMIN_PASSWORD = '3148';
+const subAdmins = new Set();
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
@@ -297,7 +299,11 @@ io.on('connection', (socket) => {
     if (password === ADMIN_PASSWORD) {
       admins.add(socket.id);
       if (players[socket.id]) adminNames.add(players[socket.id].name);
-      socket.emit('admin_result', { success: true });
+      socket.emit('admin_result', { success: true, role: 'admin' });
+      socket.emit('admin_playerlist', getPlayerList());
+    } else if (password === SUB_ADMIN_PASSWORD) {
+      subAdmins.add(socket.id);
+      socket.emit('admin_result', { success: true, role: 'subadmin' });
       socket.emit('admin_playerlist', getPlayerList());
     } else {
       socket.emit('admin_result', { success: false });
@@ -306,7 +312,7 @@ io.on('connection', (socket) => {
 
   // Admin actions
   socket.on('admin_mute', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedIPs[entry[1].ip] = 'perm';
@@ -330,9 +336,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_timeout', ({ name, seconds }) => {
-    if (!admins.has(socket.id)) return;
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
     const secs = Math.max(1, parseInt(seconds) || 30);
-    const entry = Object.entries(players).find(([,p]) => p.name === name);
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === name.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     mutedIPs[entry[1].ip] = Date.now() + secs * 1000;
     io.emit('chat', { system: true, msg: `⏱️ ${name} timed out for ${secs}s.`, time: Date.now() });
@@ -439,7 +445,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_jumpscare', ({ targetName, volume }) => {
-    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('jumpscare', { volume: volume || 'medium' });
@@ -497,6 +503,7 @@ io.on('connection', (socket) => {
       }, 30000);
       delete players[socket.id];
       admins.delete(socket.id);
+      subAdmins.delete(socket.id);
       io.emit('leaderboard', getLeaderboard());
     }
   });

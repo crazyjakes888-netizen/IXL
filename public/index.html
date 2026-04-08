@@ -729,6 +729,10 @@
     <span>&gt;</span>
     <input id="admin-cmd" type="text" placeholder="type a command..." autocomplete="off" spellcheck="false" />
   </div>
+  <div id="subadmin-cmd-bar" style="display:none;">
+    <span>&gt;</span>
+    <input id="subadmin-cmd" type="text" placeholder="type a command..." autocomplete="off" spellcheck="false" />
+  </div>
 </div>
 
 <div id="main">
@@ -1578,12 +1582,17 @@
       updateDisplay(); updateButtons();
     });
 
-    socket.on('admin_result', ({ success }) => {
+    socket.on('admin_result', ({ success, role }) => {
       if (success) {
         document.getElementById('admin-login-bar').style.display = 'none';
         document.getElementById('admin-output').style.display = 'block';
-        document.getElementById('admin-cmd-bar').style.display = 'flex';
-        adminLog('Logged in. Type /help for commands.', 'alog-ok');
+        if (role === 'subadmin') {
+          document.getElementById('subadmin-cmd-bar').style.display = 'flex';
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /jumpscare', 'alog-ok');
+        } else {
+          document.getElementById('admin-cmd-bar').style.display = 'flex';
+          adminLog('Logged in. Type /help for commands.', 'alog-ok');
+        }
       } else {
         const err = document.getElementById('admin-error');
         err.style.display = 'block';
@@ -1636,6 +1645,7 @@
 
   document.getElementById('admin-console-close').addEventListener('click', () => {
     document.getElementById('admin-console').style.display = 'none';
+    document.getElementById('subadmin-cmd-bar').style.display = 'none';
   });
 
   document.getElementById('admin-submit').addEventListener('click', () => {
@@ -1761,6 +1771,38 @@
       socket.emit('admin_jumpscare', { targetName, volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
+    }
+  });
+
+  // ---- Sub-Admin commands ----
+  document.getElementById('subadmin-cmd').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const raw = e.target.value.trim();
+    if (!raw) return;
+    adminLog('> ' + raw, 'alog-info');
+    e.target.value = '';
+    const parts = raw.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
+    if (cmd === '/help') {
+      adminLog('/mute (name)                        — permanent IP mute', 'alog-warn');
+      adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
+      adminLog('/jumpscare (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+    } else if (cmd === '/mute') {
+      if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
+      socket.emit('admin_mute', parts.slice(1).join(' '));
+    } else if (cmd === '/timeout') {
+      if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
+      const secs = parts[parts.length - 1];
+      socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
+    } else if (cmd === '/jumpscare') {
+      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol'];
+      const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
+      const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
+      socket.emit('admin_jumpscare', { targetName, volume: vol });
+    } else {
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /jumpscare', 'alog-err');
     }
   });
 
