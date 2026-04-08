@@ -1695,41 +1695,47 @@
 
     if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
-      socket.emit('admin_mute', parts[1]);
+      socket.emit('admin_mute', parts.slice(1).join(' '));
     } else if (cmd === '/unmute') {
       if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
-      socket.emit('admin_unmute', parts[1]);
+      socket.emit('admin_unmute', parts.slice(1).join(' '));
     } else if (cmd === '/clear') {
       socket.emit('admin_clearchat');
     } else if (cmd === '/timeout') {
-      if (!parts[1] || !parts[2]) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
-      socket.emit('admin_timeout', { name: parts[1], seconds: parseInt(parts[2]) });
+      if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
+      const secs = parts[parts.length - 1];
+      const name = parts.slice(1, -1).join(' ');
+      socket.emit('admin_timeout', { name, seconds: parseInt(secs) });
     } else if (cmd === '/ban') {
-      if (!parts[1] || !parts[2]) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
-      socket.emit('admin_ban', { name: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+      if (parts.length < 3) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const name = parts.slice(1, -1).join(' ');
+      socket.emit('admin_ban', { name, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
     } else if (cmd === '/ipban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
     } else if (cmd === '/wipeaccount') {
       if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
-      socket.emit('admin_wipeaccount', parts[1]);
+      socket.emit('admin_wipeaccount', parts.slice(1).join(' '));
     } else if (cmd === '/wipeupgrades') {
       if (!parts[1]) { adminLog('Usage: /wipeupgrades (name)', 'alog-err'); return; }
-      socket.emit('admin_wipe_upgrades', parts[1]);
+      socket.emit('admin_wipe_upgrades', parts.slice(1).join(' '));
     } else if (cmd === '/delaccount') {
       if (!parts[1]) { adminLog('Usage: /delaccount (name)', 'alog-err'); return; }
-      socket.emit('admin_delaccount', parts[1]);
+      socket.emit('admin_delaccount', parts.slice(1).join(' '));
     } else if (cmd === '/cookie') {
       const action = parts[1];
       if (action === 'add') {
-        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'add' });
+        if (parts.length < 4) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
+        const amount = parts[parts.length - 1];
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'add' });
       } else if (action === 'remove') {
-        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'remove' });
+        if (parts.length < 4) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
+        const amount = parts[parts.length - 1];
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'remove' });
       } else if (action === 'wipe') {
         if (!parts[2]) { adminLog('Usage: /cookie wipe (name)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: 999999999999, action: 'remove' });
+        socket.emit('admin_cookies', { name: parts.slice(2).join(' '), amount: 999999999999, action: 'remove' });
       } else {
         adminLog('Usage: /cookie add/remove/wipe (name) (amount)', 'alog-err');
       }
@@ -1740,17 +1746,19 @@
       socket.emit('admin_wipeall');
     } else if (cmd === '/autowhite') {
       if (!parts[1]) { adminLog('Usage: /autowhite (name)', 'alog-err'); return; }
-      socket.emit('admin_autowhite', parts[1]);
+      socket.emit('admin_autowhite', parts.slice(1).join(' '));
     } else if (cmd === '/autoblack') {
       if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
-      socket.emit('admin_autoblack', parts[1]);
+      socket.emit('admin_autoblack', parts.slice(1).join(' '));
     } else if (cmd === '/kick') {
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
-      socket.emit('admin_kick', parts[1]);
+      socket.emit('admin_kick', parts.slice(1).join(' '));
     } else if (cmd === '/jumpscare') {
       if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet]', 'alog-err'); return; }
-      const vol = ['loud','medium','quiet','lol'].includes(parts[2]) ? parts[2] : 'lol';
-      socket.emit('admin_jumpscare', { targetName: parts[1], volume: vol });
+      const VOLS = ['loud','medium','quiet','lol'];
+      const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
+      const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
+      socket.emit('admin_jumpscare', { targetName, volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
