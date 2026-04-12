@@ -1811,16 +1811,32 @@
       vcBtn().textContent = '🎤 VC ●';
       socket.emit('vc_join');
 
-      // Speech recognition — send transcript to server for bad-word check
+      // Speech recognition — bad-word detection
+      // interimResults:true is critical: Chrome's profanity filter only applies to
+      // FINAL results. Interim results fire with the raw unfiltered transcript, so
+      // we catch the word before Chrome can replace it with **** or drop it.
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SR) {
+        const VC_BAD = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','damn','crap'];
         vcRecognition = new SR();
         vcRecognition.continuous = true;
-        vcRecognition.interimResults = false;
+        vcRecognition.interimResults = true; // get raw words before Chrome's filter runs
         vcRecognition.lang = 'en-US';
         vcRecognition.onresult = (ev) => {
-          const text = Array.from(ev.results).slice(ev.resultIndex).map(r => r[0].transcript).join(' ');
-          if (text.trim()) socket.emit('vc_speech', text);
+          for (let i = ev.resultIndex; i < ev.results.length; i++) {
+            const raw = ev.results[i][0].transcript;
+            const lower = raw.toLowerCase().replace(/[^a-z\s\*]/g, ' ');
+            // Check for explicit bad words (works on interim results before filtering)
+            const hasBad = VC_BAD.some(w => lower.split(/\s+/).some(tok => tok === w || tok.includes(w)));
+            // Check for censored patterns in final results (f***, ****)
+            const hasCensored = raw.split(/\s+/).some(w => /\*{2,}/.test(w) || /[a-z]\*+[a-z]/i.test(w));
+            if (hasBad || hasCensored) {
+              socket.emit('vc_bad_word'); // dedicated ban event — bypasses transcript filtering
+              return;
+            }
+            // Send final clean transcripts to server as a secondary check
+            if (ev.results[i].isFinal && raw.trim()) socket.emit('vc_speech', raw);
+          }
         };
         vcRecognition.onerror = () => {};
         vcRecognition.onend = () => { if (vcActive) try { vcRecognition.start(); } catch(e) {} };

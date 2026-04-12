@@ -97,6 +97,16 @@ function filterMsg(text) {
   });
 }
 
+function doVcBan(socket, name) {
+  const lower = name.toLowerCase();
+  if (vcBans[lower] && vcBans[lower] > Date.now()) return; // already banned
+  vcBans[lower] = Date.now() + 60 * 60 * 1000; // 1 hour
+  vcMembers.delete(socket.id);
+  vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
+  socket.emit('vc_banned', 3600);
+  io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 1 hour (bad language).`, time: Date.now() });
+}
+
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
@@ -662,13 +672,16 @@ io.on('connection', (socket) => {
       /[a-z]\*+[a-z]/i.test(w)      // "sh*t", "f**k"
     );
     if (hasCensored || isBad(normalize(raw))) {
-      const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
-      vcBans[name.toLowerCase()] = expiry;
-      vcMembers.delete(socket.id);
-      vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
-      socket.emit('vc_banned', 3600);
-      io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 1 hour (bad language).`, time: Date.now() });
+      doVcBan(socket, name);
     }
+  });
+
+  // Client-side detection path: fires when the client catches a bad word in
+  // interim transcript (before Chrome's profanity filter can censor/drop it)
+  socket.on('vc_bad_word', () => {
+    const name = players[socket.id] && players[socket.id].name;
+    if (!name) return;
+    doVcBan(socket, name);
   });
 
   socket.on('disconnect', () => {
