@@ -27,6 +27,7 @@ const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const mutedIPs = {}; // ip -> expiry or 'perm'
+const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
@@ -209,7 +210,8 @@ io.on('connection', (socket) => {
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
     const ip = players[socket.id]?.ip || getIP(socket);
-    if (isBlocked(ip, mutedIPs)) {
+    const playerName = players[socket.id].name;
+    if (isBlocked(ip, mutedIPs) || mutedNames.has(playerName.toLowerCase())) {
       socket.emit('chat_cooldown', 'muted');
       return;
     }
@@ -316,16 +318,27 @@ io.on('connection', (socket) => {
     if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
-    mutedIPs[entry[1].ip] = 'perm';
-    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was permanently muted.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Permanently muted ${entry[1].name} (IP-locked).` });
+    mutedNames.add(entry[1].name.toLowerCase());
+    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Muted ${entry[1].name} (name-based).` });
   });
 
-  socket.on('admin_unmute', (targetName) => {
+  socket.on('admin_ipmute', (targetName) => {
     if (!admins.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
-    delete mutedIPs[entry[1].ip];
+    mutedIPs[entry[1].ip] = 'perm';
+    mutedNames.add(entry[1].name.toLowerCase());
+    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was permanently IP-muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `IP-muted ${entry[1].name}.` });
+  });
+
+  socket.on('admin_unmute', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    const lower = targetName.toLowerCase();
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === lower);
+    mutedNames.delete(lower);
+    if (entry) delete mutedIPs[entry[1].ip];
     io.emit('chat', { system: true, msg: `🔊 ${targetName} was unmuted.`, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg: `Unmuted ${targetName}.` });
   });

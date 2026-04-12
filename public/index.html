@@ -1684,7 +1684,8 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
-      adminLog('/mute (name)                   — permanent mute', 'alog-warn');
+      adminLog('/mute (name)                   — name-based mute', 'alog-warn');
+      adminLog('/ipmute (name)                 — permanent IP mute', 'alog-warn');
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
@@ -1709,6 +1710,9 @@
     if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
+    } else if (cmd === '/ipmute') {
+      if (!parts[1]) { adminLog('Usage: /ipmute (name)', 'alog-err'); return; }
+      socket.emit('admin_ipmute', parts.slice(1).join(' '));
     } else if (cmd === '/unmute') {
       if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
       socket.emit('admin_unmute', parts.slice(1).join(' '));
@@ -1788,12 +1792,16 @@
     const cmd = parts[0].toLowerCase();
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
     if (cmd === '/help') {
-      adminLog('/mute (name)                        — permanent IP mute', 'alog-warn');
+      adminLog('/mute (name)                        — name-based mute', 'alog-warn');
+      adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
       adminLog('/jumpscare (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
     } else if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
+    } else if (cmd === '/unmute') {
+      if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
+      socket.emit('admin_unmute', parts.slice(1).join(' '));
     } else if (cmd === '/timeout') {
       if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
       const secs = parts[parts.length - 1];
