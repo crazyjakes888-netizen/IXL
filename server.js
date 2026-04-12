@@ -536,6 +536,25 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  socket.on('admin_unban', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    const lower = targetName.toLowerCase();
+    // Find matching key in bannedNames (case-insensitive)
+    const key = Object.keys(bannedNames).find(k => k.toLowerCase() === lower);
+    const ipKey = Object.keys(bannedIPs).find(k => {
+      const entry = Object.values(players).find(p => p.name.toLowerCase() === lower);
+      return entry && k === entry.ip;
+    });
+    if (!key && !ipKey) {
+      socket.emit('admin_action_result', { ok: false, msg: `No active ban found for "${targetName}".` });
+      return;
+    }
+    if (key) delete bannedNames[key];
+    if (ipKey) delete bannedIPs[ipKey];
+    io.emit('chat', { system: true, msg: `✅ ${targetName} was unbanned.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Unbanned ${targetName}.` });
+  });
+
   // ---- Voice Chat ----
   socket.on('vc_join', () => {
     const name = players[socket.id] && players[socket.id].name;

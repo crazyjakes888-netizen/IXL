@@ -1871,6 +1871,7 @@
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
+      adminLog('/unban (name)                  — remove ban', 'alog-warn');
       adminLog('/ipban (ip) (sec|perm)         — ban by IP', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
       adminLog('/wipeaccount (name)            — wipe coins & upgrades (keep account)', 'alog-warn');
@@ -1913,6 +1914,9 @@
       const dur = parts[parts.length - 1];
       const name = parts.slice(1, -1).join(' ');
       socket.emit('admin_ban', { name, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+    } else if (cmd === '/unban') {
+      if (!parts[1]) { adminLog('Usage: /unban (name)', 'alog-err'); return; }
+      socket.emit('admin_unban', parts.slice(1).join(' '));
     } else if (cmd === '/ipban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
