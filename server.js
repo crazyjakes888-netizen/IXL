@@ -10,19 +10,36 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+
+// Beacon save — called by navigator.sendBeacon on page close, guaranteed delivery
+app.post('/save', (req, res) => {
+  const { username, cookies, owned } = req.body || {};
+  if (username && accounts[username]) {
+    accounts[username].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+    if (owned) accounts[username].owned = owned;
+    saveAccounts();
+  }
+  res.sendStatus(200);
+});
 
 const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const mutedIPs = {}; // ip -> expiry or 'perm'
+const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
+const SUB_ADMIN_PASSWORD = '3148';
+const subAdmins = new Set();
+const subAdminBanned = new Set(); // usernames banned from using sub-admin
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 let accounts = {};
 try { accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8')); } catch(e) {}
@@ -83,6 +100,13 @@ io.on('connection', (socket) => {
     const hash = hashPw(password);
     const acc = accounts[uname];
     if (!acc) {
+      // Check for case-insensitive name collision
+      const lname = uname.toLowerCase();
+      const collision = Object.keys(accounts).find(k => k.toLowerCase() === lname);
+      if (collision) {
+        socket.emit('auth_result', { ok: false, msg: 'That username is already taken.' });
+        return;
+      }
       // New account — auto-create
       accounts[uname] = { hash, cookies: 0, owned: {} };
       saveAccounts();
@@ -187,7 +211,8 @@ io.on('connection', (socket) => {
   socket.on('chat_msg', (msg) => {
     if (!players[socket.id]) return;
     const ip = players[socket.id]?.ip || getIP(socket);
-    if (isBlocked(ip, mutedIPs)) {
+    const playerName = players[socket.id].name;
+    if (isBlocked(ip, mutedIPs) || mutedNames.has(playerName.toLowerCase())) {
       socket.emit('chat_cooldown', 'muted');
       return;
     }
@@ -237,8 +262,7 @@ io.on('connection', (socket) => {
                  : amt >= 1e3  ? (amt / 1e3).toFixed(1)  + 'K'
                  : String(amt);
     io.to(target[0]).emit('pay_received', { fromName, amount: amt });
-    socket.emit('pay_result', { ok: true, msg: `Sent 🍪 ${amtStr} to ${targetName}!` });
-    io.emit('chat', { system: true, msg: `💸 ${fromName} paid ${amtStr} cookies to ${targetName}!`, time: Date.now() });
+    socket.emit('pay_result', { ok: true, msg: `Sent 🍪 ${amtStr} to ${targetName}!`, amount: amt });
   });
 
   // Attack
@@ -272,11 +296,6 @@ io.on('connection', (socket) => {
     players[socket.id].lastAttack = now;
     players[socket.id].cookies -= cost;
     io.to(target[0]).emit('attack_hit', { attackId, attackerName: players[socket.id].name });
-    io.emit('chat', {
-      system: true,
-      msg: `⚔️ ${players[socket.id].name} used ${attackId} on ${targetName}!`,
-      time: Date.now()
-    });
   });
 
   // Admin login
@@ -284,7 +303,16 @@ io.on('connection', (socket) => {
     if (password === ADMIN_PASSWORD) {
       admins.add(socket.id);
       if (players[socket.id]) adminNames.add(players[socket.id].name);
-      socket.emit('admin_result', { success: true });
+      socket.emit('admin_result', { success: true, role: 'admin' });
+      socket.emit('admin_playerlist', getPlayerList());
+    } else if (password === SUB_ADMIN_PASSWORD) {
+      const name = players[socket.id] && players[socket.id].name;
+      if (name && subAdminBanned.has(name.toLowerCase())) {
+        socket.emit('admin_result', { success: false });
+        return;
+      }
+      subAdmins.add(socket.id);
+      socket.emit('admin_result', { success: true, role: 'subadmin' });
       socket.emit('admin_playerlist', getPlayerList());
     } else {
       socket.emit('admin_result', { success: false });
@@ -293,19 +321,30 @@ io.on('connection', (socket) => {
 
   // Admin actions
   socket.on('admin_mute', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
+    mutedNames.add(entry[1].name.toLowerCase());
+    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Muted ${entry[1].name} (name-based).` });
+  });
+
+  socket.on('admin_ipmute', (targetName) => {
     if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedIPs[entry[1].ip] = 'perm';
-    io.emit('chat', { system: true, msg: `🔇 ${targetName} was permanently muted.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Permanently muted ${targetName} (IP-locked).` });
+    mutedNames.add(entry[1].name.toLowerCase());
+    io.emit('chat', { system: true, msg: `🔇 ${entry[1].name} was permanently IP-muted.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `IP-muted ${entry[1].name}.` });
   });
 
   socket.on('admin_unmute', (targetName) => {
-    if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([,p]) => p.name === targetName);
-    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
-    delete mutedIPs[entry[1].ip];
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    const lower = targetName.toLowerCase();
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === lower);
+    mutedNames.delete(lower);
+    if (entry) delete mutedIPs[entry[1].ip];
     io.emit('chat', { system: true, msg: `🔊 ${targetName} was unmuted.`, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg: `Unmuted ${targetName}.` });
   });
@@ -317,9 +356,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_timeout', ({ name, seconds }) => {
-    if (!admins.has(socket.id)) return;
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
     const secs = Math.max(1, parseInt(seconds) || 30);
-    const entry = Object.entries(players).find(([,p]) => p.name === name);
+    const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === name.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     mutedIPs[entry[1].ip] = Date.now() + secs * 1000;
     io.emit('chat', { system: true, msg: `⏱️ ${name} timed out for ${secs}s.`, time: Date.now() });
@@ -379,6 +418,25 @@ io.on('connection', (socket) => {
     io.emit('leaderboard', getLeaderboard());
   });
 
+  socket.on('admin_subadminban', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    subAdminBanned.add(targetName.toLowerCase());
+    // Kick them if currently logged in as sub-admin
+    Object.entries(players).forEach(([sid, p]) => {
+      if (p.name.toLowerCase() === targetName.toLowerCase() && subAdmins.has(sid)) {
+        subAdmins.delete(sid);
+        io.to(sid).emit('force_logout', 'Your sub-admin access has been revoked.');
+      }
+    });
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} is banned from sub-admin.` });
+  });
+
+  socket.on('admin_subadminunban', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    subAdminBanned.delete(targetName.toLowerCase());
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} can use sub-admin again.` });
+  });
+
   socket.on('admin_autowhite', (targetName) => {
     if (!admins.has(socket.id)) return;
     acWhitelist.add(targetName);
@@ -395,6 +453,23 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `${targetName} removed from autoclicker whitelist.` });
   });
 
+  socket.on('admin_wipeall', () => {
+    if (!admins.has(socket.id)) return;
+    // Wipe every account in storage
+    Object.keys(accounts).forEach(name => {
+      accounts[name].cookies = 0;
+      accounts[name].owned = {};
+    });
+    saveAccounts();
+    // Reset all live sessions
+    Object.keys(players).forEach(sid => {
+      players[sid].cookies = 0;
+      io.to(sid).emit('admin_reset_you');
+    });
+    socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
+    io.emit('leaderboard', getLeaderboard());
+  });
+
   socket.on('admin_wipe_upgrades', (targetName) => {
     if (!admins.has(socket.id)) return;
     if (!accounts[targetName]) {
@@ -408,12 +483,12 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all upgrades for: ${targetName}` });
   });
 
-  socket.on('admin_jumpscare', (targetName) => {
-    if (!admins.has(socket.id)) return;
-    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
+  socket.on('admin_jumpscare', ({ targetName, volume }) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
-    io.to(entry[0]).emit('jumpscare');
-    socket.emit('admin_action_result', { ok: true, msg: `💀 Jumpscared ${targetName}` });
+    io.to(entry[0]).emit('jumpscare', { volume: volume || 'medium' });
+    socket.emit('admin_action_result', { ok: true, msg: `💀 Jumpscared ${targetName} (${volume || 'medium'})` });
   });
 
   socket.on('admin_ipban', ({ ip, duration }) => {
@@ -429,6 +504,14 @@ io.on('connection', (socket) => {
     });
     const msg = isPerm ? `🔨 IP ${safeIp} permanently banned.` : `🔨 IP ${safeIp} banned for ${duration}s.`;
     socket.emit('admin_action_result', { ok: true, msg });
+  });
+
+  socket.on('admin_kick', (targetName) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('kicked');
+    socket.emit('admin_action_result', { ok: true, msg: `👢 Kicked ${targetName}` });
   });
 
   socket.on('admin_ban', ({ name, duration }) => {
@@ -459,6 +542,7 @@ io.on('connection', (socket) => {
       }, 30000);
       delete players[socket.id];
       admins.delete(socket.id);
+      subAdmins.delete(socket.id);
       io.emit('leaderboard', getLeaderboard());
     }
   });

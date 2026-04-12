@@ -461,15 +461,37 @@
     #pay-send-btn:hover { background: #336633; }
     #pay-result { font-size: 0.85rem; min-height: 18px; text-align: center; }
 
-    /* Pay button in header */
+    /* Cookie + Pay row */
+    #cookie-row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
     #pay-btn {
       position: absolute;
-      right: 90px; top: 50%; transform: translateY(-50%);
-      background: #2a4a2a; color: #88ff88;
-      border: 1px solid #448844; border-radius: 6px;
-      padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
+      left: calc(50% + 70px);
     }
-    #pay-btn:hover { background: #336633; }
+
+    /* Pay button styles */
+    #pay-btn {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #2a6a2a, #144414);
+      border: 3px solid #448844;
+      color: #88ff88;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      line-height: 1.2;
+      transition: transform 0.08s, box-shadow 0.08s;
+      box-shadow: 0 0 16px #00880033;
+    }
+    #pay-btn:hover { background: radial-gradient(circle at 40% 35%, #336633, #1a5a1a); transform: scale(1.05); }
+    #pay-btn:active { transform: scale(0.93); }
 
     /* === RIGHT PANEL === */
     #right-panel {
@@ -486,6 +508,9 @@
       background: #181818;
       padding: 12px;
       border-bottom: 2px solid #2a2a2a;
+      overflow-y: auto;
+      flex-shrink: 0;
+      max-height: 50%;
     }
 
     #leaderboard h3 {
@@ -656,7 +681,6 @@
 <header>
   <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
-  <button id="pay-btn" title="Pay a player">💰 Pay</button>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
@@ -669,7 +693,7 @@
     </div>
     <div id="pay-modal-body">
       <select id="pay-target"><option value="">— select player —</option></select>
-      <input id="pay-amount" type="number" placeholder="Amount of cookies..." min="1" />
+      <input id="pay-amount" type="text" placeholder="e.g. 1k, 5m, 2b, 1t..." />
       <button id="pay-send-btn">Send Cookies</button>
       <div id="pay-result"></div>
     </div>
@@ -705,13 +729,20 @@
     <span>&gt;</span>
     <input id="admin-cmd" type="text" placeholder="type a command..." autocomplete="off" spellcheck="false" />
   </div>
+  <div id="subadmin-cmd-bar" style="display:none;">
+    <span>&gt;</span>
+    <input id="subadmin-cmd" type="text" placeholder="type a command..." autocomplete="off" spellcheck="false" />
+  </div>
 </div>
 
 <div id="main">
   <div id="game-panel">
     <div id="cookie-count">0 cookies</div>
     <div id="cps-display">0 cookies/sec</div>
-    <button id="cookie-btn" title="Click me!">🍪</button>
+    <div id="cookie-row">
+      <button id="cookie-btn" title="Click me!">🍪</button>
+      <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+    </div>
     <div id="upgrades-title">Upgrades</div>
     <div id="upgrades"></div>
     <div id="powerups-title">⚡ Power-Ups</div>
@@ -751,6 +782,16 @@
   let myName = '';
   let socket;
 
+  // Pre-unlock Web Audio on first touch so jumpscare sound works on mobile
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  document.addEventListener('touchstart', () => getAudioCtx(), { once: true, passive: true });
+  document.addEventListener('click',      () => getAudioCtx(), { once: true, passive: true });
+
   const UPGRADES = [
     { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
     { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
@@ -787,14 +828,14 @@
   ];
 
   const POWERUPS = [
-    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× CPS for 60s',           cost: 50000,      cpsBoost: 2,   clickBoost: 1,   duration: 60000  },
-    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     cpsBoost: 1,   clickBoost: 10,  duration: 30000  },
-    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× CPS for 45s',            cost: 500000,     cpsBoost: 5,   clickBoost: 1,   duration: 45000  },
-    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× CPS for 20s',           cost: 2000000,    cpsBoost: 10,  clickBoost: 1,   duration: 20000  },
-    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    cpsBoost: 1,   clickBoost: 50,  duration: 15000  },
-    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× CPS & click for 15s',   cost: 10000000,   cpsBoost: 20,  clickBoost: 20,  duration: 15000  },
-    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× CPS for 10s',          cost: 50000000,   cpsBoost: 100, clickBoost: 1,   duration: 10000  },
-    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× everything for 8s',    cost: 500000000,  cpsBoost: 500, clickBoost: 500, duration: 8000   },
+    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× click for 60s',          cost: 50000,      clickBoost: 2,   duration: 60000  },
+    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     clickBoost: 10,  duration: 30000  },
+    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× click for 45s',          cost: 500000,     clickBoost: 5,   duration: 45000  },
+    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× click for 20s',         cost: 2000000,    clickBoost: 10,  duration: 20000  },
+    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    clickBoost: 50,  duration: 15000  },
+    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× click for 15s',         cost: 10000000,   clickBoost: 20,  duration: 15000  },
+    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× click for 10s',        cost: 50000000,   clickBoost: 100, duration: 10000  },
+    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× click for 8s',         cost: 500000000,  clickBoost: 500, duration: 8000   },
   ];
 
   const ATTACKS = [
@@ -828,9 +869,8 @@
   }
 
   function rebuildMultipliers() {
-    cpsMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.cpsBoost, 1);
-    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * b.clickBoost, 1);
-    recalcCps();
+    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * (b.clickBoost || 1), 1);
+    // cpsMultiplier intentionally not affected by power-ups (clicks only)
   }
 
   function getClickPower() {
@@ -909,7 +949,7 @@
       btn.addEventListener('click', () => {
         if (cookies < pu.cost || activePUBoosts[pu.id]) return;
         cookies -= pu.cost;
-        activePUBoosts[pu.id] = { cpsBoost: pu.cpsBoost, clickBoost: pu.clickBoost };
+        activePUBoosts[pu.id] = { clickBoost: pu.clickBoost || 1 };
         rebuildMultipliers();
         btn.disabled = true;
         let remaining = Math.ceil(pu.duration / 1000);
@@ -1123,49 +1163,47 @@
     cpsHistory.push(cps);
     if (cpsHistory.length > 30) cpsHistory.shift();
 
-    // --- 1. Raw high CPS (unchanged) ---
-    if (cps >= 30) {
+    // --- 1. Raw high CPS ---
+    if (cps >= 35) {
       acHighCpsSeconds++;
-      if (acHighCpsSeconds >= 3) { lockCookieBtn('sustained high CPS'); return; }
+      if (acHighCpsSeconds >= 4) { lockCookieBtn('sustained high CPS'); return; }
     } else {
       acHighCpsSeconds = 0;
     }
 
     // --- 2. Inter-click interval consistency ---
-    // Bots have very uniform gaps; humans vary wildly.
-    if (interClickGaps.length >= 15) {
+    // Only flag extremely uniform rapid clicking (CV < 0.10 = less than 10% variation)
+    // Raised from 0.20 so trackpad/fast human clicking isn't falsely flagged
+    if (interClickGaps.length >= 20) {
       const mean = acMean(interClickGaps);
       const sd   = acStdDev(interClickGaps);
-      const cv   = sd / mean; // coefficient of variation
-      // Rapid AND suspiciously uniform (CV < 0.20 at 8+ CPS)
-      if (mean < 125 && cv < 0.20) {
+      const cv   = sd / mean;
+      if (mean < 80 && cv < 0.10) {
         lockCookieBtn('mechanical interval pattern (CV=' + cv.toFixed(2) + ')');
         return;
       }
     }
 
     // --- 3. On/off cycling ---
-    // Detects toggling autoclicker on and off to evade sustained-rate checks.
     if (cps === 0 && !acLastCpsWasZero) {
       acLastCpsWasZero = true;
-    } else if (cps >= 8 && acLastCpsWasZero) {
+    } else if (cps >= 10 && acLastCpsWasZero) {
       acLastCpsWasZero = false;
       acOnOffCount++;
       if (!acOnOffResetTimer) {
         acOnOffResetTimer = setTimeout(() => { acOnOffCount = 0; acOnOffResetTimer = null; }, 60000);
       }
-      if (acOnOffCount >= 5) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
+      if (acOnOffCount >= 8) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
     }
 
-    // --- 4. Sustained mid-range CPS with low variance ---
-    // Catches randomised autoclickers that stay between 8–28 CPS for a long time.
-    if (cps >= 8 && cps < 30) {
+    // --- 4. Sustained mid-range CPS with very low variance ---
+    if (cps >= 10 && cps < 35) {
       acSustainedMidSecs++;
-      if (acSustainedMidSecs >= 20 && cpsHistory.length >= 15) {
-        const recent = cpsHistory.slice(-15);
+      if (acSustainedMidSecs >= 30 && cpsHistory.length >= 20) {
+        const recent = cpsHistory.slice(-20);
         const mean = acMean(recent);
         const cv   = acStdDev(recent) / (mean || 1);
-        if (mean >= 8 && cv < 0.35) {
+        if (mean >= 10 && cv < 0.20) {
           lockCookieBtn('sustained consistent CPS (mean=' + mean.toFixed(1) + ' cv=' + cv.toFixed(2) + ')');
           return;
         }
@@ -1215,9 +1253,48 @@
     setTimeout(() => pop.remove(), 800);
   });
 
+  // ---- AFK detection ----
+  const AFK_MS = 10 * 60 * 1000; // 10 minutes
+  let lastActivity = Date.now();
+  let afkFrozen = false;
+
+  function resetActivity() {
+    lastActivity = Date.now();
+    if (afkFrozen) unfreeze();
+  }
+
+  function unfreeze() {
+    afkFrozen = false;
+    const overlay = document.getElementById('afk-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  function showAfkOverlay() {
+    if (document.getElementById('afk-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'afk-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#000000cc;z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;';
+    overlay.innerHTML = '<div style="font-size:3rem">💤</div><div style="color:#fff;font-size:1.4rem;font-weight:bold;">You\'re AFK!</div><div style="color:#aaa;font-size:0.9rem;">Cookie production paused. Click to resume.</div>';
+    overlay.addEventListener('click', () => { resetActivity(); });
+    document.body.appendChild(overlay);
+  }
+
+  // Track any meaningful interaction as activity
+  ['click','keydown','mousemove','touchstart'].forEach(evt => {
+    document.addEventListener(evt, () => { if (myName) resetActivity(); }, { passive: true });
+  });
+
   // ---- Game loop ----
   let drainAmount = 0; // active curse drain per tick
   setInterval(() => {
+    // AFK check
+    if (myName && !afkFrozen && Date.now() - lastActivity > AFK_MS) {
+      afkFrozen = true;
+      showAfkOverlay();
+    }
+
+    if (afkFrozen) return; // production paused while AFK
+
     let gained = totalCps / 20;
     if (drainAmount > 0) gained -= drainAmount / 20;
     if (gained !== 0) {
@@ -1244,7 +1321,11 @@
   // Save every second
   setInterval(saveProgress, 1000);
   // Save when tab closes
-  window.addEventListener('beforeunload', saveProgress);
+  window.addEventListener('beforeunload', () => {
+    if (!myName) return;
+    // sendBeacon is guaranteed to fire even as the page closes
+    navigator.sendBeacon('/save', JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned }));
+  });
 
   // ---- Join ----
   function startGame(name, existingSocket) {
@@ -1272,6 +1353,8 @@
 
     socket.io.on('reconnect', () => {
       socket.emit('join', name);
+      const c = localStorage.getItem('cc_color_' + name) || '#aaaaff';
+      socket.emit('set_name_color', c);
     });
 
     let fullLeaderboard = [];
@@ -1279,10 +1362,9 @@
     socket.on('leaderboard', (lb) => {
       fullLeaderboard = lb;
 
-      // Sidebar: top 10 only
       const list = document.getElementById('lb-list');
       list.innerHTML = '';
-      lb.slice(0, 10).forEach((p, i) => {
+      lb.forEach((p, i) => {
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
         li.innerHTML = `
@@ -1435,15 +1517,12 @@
     socket.on('ac_whitelisted', () => { acWhitelisted = true; });
     socket.on('ac_blacklisted', () => { acWhitelisted = false; });
 
-    socket.on('pay_result', ({ ok, msg }) => {
+    socket.on('pay_result', ({ ok, msg, amount }) => {
       const resEl = document.getElementById('pay-result');
       resEl.style.color = ok ? '#44ff88' : '#ff5555';
       resEl.textContent = msg;
-      if (ok) {
-        updateDisplay();
-        updateButtons();
-        saveProgress();
-      }
+      if (!ok && amount) { cookies += amount; } // refund if rejected
+      updateDisplay(); updateButtons(); saveProgress();
     });
 
     socket.on('pay_received', ({ fromName, amount }) => {
@@ -1462,7 +1541,7 @@
     socket.on('admin_reset_you', () => {
       cookies = 0; totalCps = 0;
       Object.keys(owned).forEach(k => owned[k] = 0);
-      recalcCps(); updateDisplay(); updateButtons();
+      recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
     socket.on('admin_wipe_upgrades_you', () => {
@@ -1470,37 +1549,31 @@
       recalcCps(); updateDisplay(); updateButtons(); saveProgress();
     });
 
-    socket.on('jumpscare', () => {
-      // Flash overlay
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:#ff0000;z-index:99999;opacity:0.9;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:20vw;';
-      overlay.textContent = '😱';
-      document.body.appendChild(overlay);
-      setTimeout(() => overlay.remove(), 800);
+    socket.on('kicked', () => {
+      window.close();
+      // Fallback if browser blocks window.close()
+      setTimeout(() => { window.location.href = 'about:blank'; }, 100);
+    });
 
-      // Loud "FAH" sound via Web Audio
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        // Bass boom
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.connect(gain1); gain1.connect(ctx.destination);
-        osc1.frequency.setValueAtTime(80, ctx.currentTime);
-        osc1.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
-        gain1.gain.setValueAtTime(3, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-        osc1.start(ctx.currentTime); osc1.stop(ctx.currentTime + 0.6);
-        // High screech
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sawtooth';
-        osc2.connect(gain2); gain2.connect(ctx.destination);
-        osc2.frequency.setValueAtTime(1200, ctx.currentTime);
-        osc2.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.3);
-        gain2.gain.setValueAtTime(2, ctx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.4);
-      } catch(e) {}
+    socket.on('jumpscare', ({ volume } = {}) => {
+      // Flashbang: white blinding flash with grenade emoji
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:25vw;transition:opacity 1.5s;';
+      overlay.textContent = '💣';
+      document.body.appendChild(overlay);
+      // Fade out slowly like a real flashbang
+      requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
+      setTimeout(() => overlay.remove(), 2000);
+
+      // Flashbang sound
+      const snd = new Audio('/flashbang-SoundEffectPro.mp3');
+      snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
+      snd.currentTime = 1.7;
+      snd.addEventListener('loadedmetadata', () => {
+        setTimeout(() => snd.pause(), (snd.duration - snd.currentTime - 3.5) * 1000);
+      });
+      snd.play().catch(() => {});
+
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
@@ -1509,12 +1582,17 @@
       updateDisplay(); updateButtons();
     });
 
-    socket.on('admin_result', ({ success }) => {
+    socket.on('admin_result', ({ success, role }) => {
       if (success) {
         document.getElementById('admin-login-bar').style.display = 'none';
         document.getElementById('admin-output').style.display = 'block';
-        document.getElementById('admin-cmd-bar').style.display = 'flex';
-        adminLog('Logged in. Type /help for commands.', 'alog-ok');
+        if (role === 'subadmin') {
+          document.getElementById('subadmin-cmd-bar').style.display = 'flex';
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /jumpscare', 'alog-ok');
+        } else {
+          document.getElementById('admin-cmd-bar').style.display = 'flex';
+          adminLog('Logged in. Type /help for commands.', 'alog-ok');
+        }
       } else {
         const err = document.getElementById('admin-error');
         err.style.display = 'block';
@@ -1550,6 +1628,8 @@
     document.getElementById('admin-login-bar').style.display = 'flex';
     document.getElementById('admin-output').style.display = 'none';
     document.getElementById('admin-cmd-bar').style.display = 'none';
+    const sub = document.getElementById('subadmin-cmd-bar');
+    if (sub) sub.style.display = 'none';
     document.getElementById('admin-error').style.display = 'none';
     document.getElementById('admin-pass').value = '';
     document.getElementById('admin-output').innerHTML = '';
@@ -1567,6 +1647,8 @@
 
   document.getElementById('admin-console-close').addEventListener('click', () => {
     document.getElementById('admin-console').style.display = 'none';
+    const sub = document.getElementById('subadmin-cmd-bar');
+    if (sub) sub.style.display = 'none';
   });
 
   document.getElementById('admin-submit').addEventListener('click', () => {
@@ -1602,7 +1684,8 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
-      adminLog('/mute (name)                   — permanent mute', 'alog-warn');
+      adminLog('/mute (name)                   — name-based mute', 'alog-warn');
+      adminLog('/ipmute (name)                 — permanent IP mute', 'alog-warn');
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
@@ -1615,67 +1698,130 @@
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
       adminLog('/setpassword (newpassword)      — change admin password', 'alog-warn');
+      adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
+      adminLog('/subadminban (name)            — ban account from using sub-admin', 'alog-warn');
+      adminLog('/subadminunban (name)          — restore sub-admin access', 'alog-warn');
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
-      adminLog('/jumpscare (name)              — blast meme jumpscare at a player', 'alog-warn');
+      adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
+      adminLog('/jumpscare (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
 
     if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
-      socket.emit('admin_mute', parts[1]);
+      socket.emit('admin_mute', parts.slice(1).join(' '));
+    } else if (cmd === '/ipmute') {
+      if (!parts[1]) { adminLog('Usage: /ipmute (name)', 'alog-err'); return; }
+      socket.emit('admin_ipmute', parts.slice(1).join(' '));
     } else if (cmd === '/unmute') {
       if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
-      socket.emit('admin_unmute', parts[1]);
+      socket.emit('admin_unmute', parts.slice(1).join(' '));
     } else if (cmd === '/clear') {
       socket.emit('admin_clearchat');
     } else if (cmd === '/timeout') {
-      if (!parts[1] || !parts[2]) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
-      socket.emit('admin_timeout', { name: parts[1], seconds: parseInt(parts[2]) });
+      if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
+      const secs = parts[parts.length - 1];
+      const name = parts.slice(1, -1).join(' ');
+      socket.emit('admin_timeout', { name, seconds: parseInt(secs) });
     } else if (cmd === '/ban') {
-      if (!parts[1] || !parts[2]) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
-      socket.emit('admin_ban', { name: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+      if (parts.length < 3) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const name = parts.slice(1, -1).join(' ');
+      socket.emit('admin_ban', { name, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
     } else if (cmd === '/ipban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
     } else if (cmd === '/wipeaccount') {
       if (!parts[1]) { adminLog('Usage: /wipeaccount (name)', 'alog-err'); return; }
-      socket.emit('admin_wipeaccount', parts[1]);
+      socket.emit('admin_wipeaccount', parts.slice(1).join(' '));
     } else if (cmd === '/wipeupgrades') {
       if (!parts[1]) { adminLog('Usage: /wipeupgrades (name)', 'alog-err'); return; }
-      socket.emit('admin_wipe_upgrades', parts[1]);
+      socket.emit('admin_wipe_upgrades', parts.slice(1).join(' '));
     } else if (cmd === '/delaccount') {
       if (!parts[1]) { adminLog('Usage: /delaccount (name)', 'alog-err'); return; }
-      socket.emit('admin_delaccount', parts[1]);
+      socket.emit('admin_delaccount', parts.slice(1).join(' '));
     } else if (cmd === '/cookie') {
       const action = parts[1];
       if (action === 'add') {
-        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'add' });
+        if (parts.length < 4) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
+        const amount = parts[parts.length - 1];
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'add' });
       } else if (action === 'remove') {
-        if (!parts[2] || !parts[3]) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: parseInt(parts[3]), action: 'remove' });
+        if (parts.length < 4) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
+        const amount = parts[parts.length - 1];
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'remove' });
       } else if (action === 'wipe') {
         if (!parts[2]) { adminLog('Usage: /cookie wipe (name)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts[2], amount: 999999999999, action: 'remove' });
+        socket.emit('admin_cookies', { name: parts.slice(2).join(' '), amount: 999999999999, action: 'remove' });
       } else {
         adminLog('Usage: /cookie add/remove/wipe (name) (amount)', 'alog-err');
       }
     } else if (cmd === '/setpassword') {
       if (!parts[1]) { adminLog('Usage: /setpassword (newpassword)', 'alog-err'); return; }
       socket.emit('admin_setpassword', parts[1]);
+    } else if (cmd === '/wipeall') {
+      socket.emit('admin_wipeall');
+    } else if (cmd === '/subadminban') {
+      if (!parts[1]) { adminLog('Usage: /subadminban (name)', 'alog-err'); return; }
+      socket.emit('admin_subadminban', parts.slice(1).join(' '));
+    } else if (cmd === '/subadminunban') {
+      if (!parts[1]) { adminLog('Usage: /subadminunban (name)', 'alog-err'); return; }
+      socket.emit('admin_subadminunban', parts.slice(1).join(' '));
     } else if (cmd === '/autowhite') {
       if (!parts[1]) { adminLog('Usage: /autowhite (name)', 'alog-err'); return; }
-      socket.emit('admin_autowhite', parts[1]);
+      socket.emit('admin_autowhite', parts.slice(1).join(' '));
     } else if (cmd === '/autoblack') {
       if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
-      socket.emit('admin_autoblack', parts[1]);
+      socket.emit('admin_autoblack', parts.slice(1).join(' '));
+    } else if (cmd === '/kick') {
+      if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
+      socket.emit('admin_kick', parts.slice(1).join(' '));
     } else if (cmd === '/jumpscare') {
-      if (!parts[1]) { adminLog('Usage: /jumpscare (name)', 'alog-err'); return; }
-      socket.emit('admin_jumpscare', parts[1]);
+      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol'];
+      const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
+      const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
+      socket.emit('admin_jumpscare', { targetName, volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
+    }
+  });
+
+  // ---- Sub-Admin commands ----
+  document.getElementById('subadmin-cmd').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const raw = e.target.value.trim();
+    if (!raw) return;
+    adminLog('> ' + raw, 'alog-info');
+    e.target.value = '';
+    const parts = raw.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
+    if (cmd === '/help') {
+      adminLog('/mute (name)                        — name-based mute', 'alog-warn');
+      adminLog('/unmute (name)                      — remove mute', 'alog-warn');
+      adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
+      adminLog('/jumpscare (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+    } else if (cmd === '/mute') {
+      if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
+      socket.emit('admin_mute', parts.slice(1).join(' '));
+    } else if (cmd === '/unmute') {
+      if (!parts[1]) { adminLog('Usage: /unmute (name)', 'alog-err'); return; }
+      socket.emit('admin_unmute', parts.slice(1).join(' '));
+    } else if (cmd === '/timeout') {
+      if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
+      const secs = parts[parts.length - 1];
+      socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
+    } else if (cmd === '/jumpscare') {
+      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol'];
+      const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
+      const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
+      socket.emit('admin_jumpscare', { targetName, volume: vol });
+    } else {
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /jumpscare', 'alog-err');
     }
   });
 
@@ -1742,13 +1888,25 @@
     if (e.target === document.getElementById('pay-modal-overlay'))
       document.getElementById('pay-modal-overlay').classList.remove('open');
   });
+  function parseShorthand(str) {
+    str = String(str).trim().toLowerCase().replace(/,/g, '');
+    const m = str.match(/^(\d+\.?\d*)([kmbt]?)$/);
+    if (!m) return 0;
+    const n = parseFloat(m[1]);
+    const mult = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[m[2]] || 1;
+    return Math.floor(n * mult);
+  }
+
   document.getElementById('pay-send-btn').addEventListener('click', () => {
     if (!socket) return;
     const targetName = document.getElementById('pay-target').value;
-    const amount = parseInt(document.getElementById('pay-amount').value, 10);
+    const amount = parseShorthand(document.getElementById('pay-amount').value);
     const resEl = document.getElementById('pay-result');
     if (!targetName) { resEl.style.color = '#ff5555'; resEl.textContent = 'Pick a player.'; return; }
-    if (!amount || amount < 1) { resEl.style.color = '#ff5555'; resEl.textContent = 'Enter a valid amount.'; return; }
+    if (!amount || amount < 1) { resEl.style.color = '#ff5555'; resEl.textContent = 'Enter a valid amount (e.g. 1k, 5m, 2b).'; return; }
+    if (amount > cookies) { resEl.style.color = '#ff5555'; resEl.textContent = 'Not enough cookies.'; return; }
+    cookies -= amount;
+    updateDisplay(); updateButtons();
     socket.emit('pay_player', { targetName, amount });
   });
 
