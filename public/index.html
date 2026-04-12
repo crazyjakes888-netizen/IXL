@@ -370,46 +370,29 @@
       background: #1e1e1e;
       border: 1px solid #333;
       border-radius: 8px;
-      padding: 8px 10px;
-      padding-right: 22px;
-      cursor: pointer;
+      padding: 8px 10px 6px;
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
-      position: relative;
     }
-
-    .upgrade-btn:hover:not(.disabled) {
-      border-color: #666;
-      background: #2a2a2a;
-    }
-
-    .upgrade-btn.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    .upgrade-btn.disabled { opacity: 0.4; }
 
     .upgrade-btn .upg-name { font-weight: bold; font-size: 0.8rem; }
     .upgrade-btn .upg-desc { font-size: 0.7rem; color: #aaaaaa; margin-top: 2px; }
     .upgrade-btn .upg-cost { font-size: 0.75rem; color: #ffffff; margin-top: 3px; }
-    .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; }
+    .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; margin-bottom: 5px; }
 
-    .upg-sell-btn {
-      position: absolute;
-      top: 3px; right: 3px;
-      background: #1a1010;
-      border: 1px solid #442222;
-      color: #995555;
-      border-radius: 3px;
-      width: 16px; height: 16px;
-      font-size: 0.6rem;
-      cursor: pointer;
-      padding: 0;
-      display: flex; align-items: center; justify-content: center;
-      line-height: 1;
+    .upg-actions { display: flex; gap: 5px; margin-top: 4px; }
+    .upg-buy-btn, .upg-sell-btn {
+      flex: 1; padding: 4px 0; border-radius: 5px;
+      font-size: 0.72rem; font-weight: bold; cursor: pointer; border: none;
     }
-    .upg-sell-btn:hover:not(:disabled) { background: #aa2222; color: #fff; border-color: #ff4444; }
-    .upg-sell-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .upg-buy-btn  { background: #1a5c1a; color: #aaffaa; }
+    .upg-buy-btn:hover:not(:disabled)  { background: #246e24; }
+    .upg-buy-btn:disabled  { opacity: 0.3; cursor: not-allowed; }
+    .upg-sell-btn { background: #5c1a1a; color: #ffaaaa; }
+    .upg-sell-btn:hover:not(:disabled) { background: #7a2222; }
+    .upg-sell-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* Power-ups section */
     #powerups-title {
@@ -849,8 +832,8 @@
     { id: 'cosmicclk',  name: '🌌 Cosmic Click',   desc: '+40K click',        baseCost: 4e8,      clickPower: 40000, cps: 0 },
     { id: 'godsmash',   name: '⚡ God Smash',      desc: '+100K click',       baseCost: 1.5e9,    clickPower: 100000, cps: 0 },
     { id: 'quantumclk', name: '⚛️ Quantum Click',  desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
-    { id: 'divineclk',  name: '👼 Divine Click',   desc: '+1M click',         baseCost: 5e10,     clickPower: 1000000, cps: 0 },
-    { id: 'infinityclk',name: '♾️ Infinity Click',  desc: '+5M click',         baseCost: 5e11,     clickPower: 5000000, cps: 0 },
+    { id: 'divineclk',  name: '👼 Divine Click',   desc: '+1M click',         baseCost: 13e9,     clickPower: 1000000, cps: 0 },
+    { id: 'infinityclk',name: '♾️ Infinity Click',  desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
   ];
 
   const POWERUPS = [
@@ -929,31 +912,24 @@
         <div class="upg-desc">${upg.desc}</div>
         <div class="upg-cost" id="upg-cost-${upg.id}">🍪 ${formatNum(getCost(upg))}</div>
         <div class="upg-owned" id="upg-owned-${upg.id}">owned: 0</div>
-        <button class="upg-sell-btn" id="upg-sell-${upg.id}" title="Sell for 30%" disabled>✕</button>
+        <div class="upg-actions">
+          <button class="upg-buy-btn"  id="upg-buy-${upg.id}"  disabled>🟢 Buy</button>
+          <button class="upg-sell-btn" id="upg-sell-${upg.id}" disabled>🔴 Sell</button>
+        </div>
       `;
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.upg-sell-btn')) return;
-        if (card.classList.contains('disabled')) return;
+      card.querySelector('.upg-buy-btn').addEventListener('click', () => {
         const cost = getCost(upg);
         if (cookies >= cost) {
           cookies -= cost;
           owned[upg.id]++;
-          recalcCps();
-          updateButtons();
-          updateDisplay();
-          saveProgress();
+          recalcCps(); updateButtons(); updateDisplay(); saveProgress();
         }
       });
-      card.querySelector('.upg-sell-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
+      card.querySelector('.upg-sell-btn').addEventListener('click', () => {
         if (owned[upg.id] <= 0) return;
-        const refund = getSellValue(upg);
+        cookies += getSellValue(upg);
         owned[upg.id]--;
-        cookies += refund;
-        recalcCps();
-        updateButtons();
-        updateDisplay();
-        saveProgress();
+        recalcCps(); updateButtons(); updateDisplay(); saveProgress();
       });
       container.appendChild(card);
     });
@@ -1033,14 +1009,13 @@
   function updateButtons() {
     UPGRADES.forEach(upg => {
       const cost = getCost(upg);
-      const card = document.getElementById('upg-' + upg.id);
-      if (!card) return;
-      card.classList.toggle('disabled', cookies < cost);
-      const costEl = document.getElementById('upg-cost-' + upg.id);
+      const costEl  = document.getElementById('upg-cost-'  + upg.id);
       const ownedEl = document.getElementById('upg-owned-' + upg.id);
-      const sellBtn = document.getElementById('upg-sell-' + upg.id);
-      if (costEl) costEl.textContent = '🍪 ' + formatNum(cost);
-      if (ownedEl) ownedEl.textContent = 'owned: ' + owned[upg.id] + (owned[upg.id] > 0 ? ' (sell: ' + formatNum(getSellValue(upg)) + ')' : '');
+      const buyBtn  = document.getElementById('upg-buy-'   + upg.id);
+      const sellBtn = document.getElementById('upg-sell-'  + upg.id);
+      if (costEl)  costEl.textContent  = '🍪 ' + formatNum(cost);
+      if (ownedEl) ownedEl.textContent = 'owned: ' + owned[upg.id];
+      if (buyBtn)  buyBtn.disabled  = cookies < cost;
       if (sellBtn) sellBtn.disabled = owned[upg.id] <= 0;
     });
     ATTACKS.forEach(atk => {
@@ -1300,24 +1275,62 @@
   });
 
   // ---- Game loop ----
-  let drainAmount = 0; // active curse drain per tick
+  let drainAmount = 0; // active drain/sec (may stack from multiple attacks)
+
+  // Timestamp-based debuff expiry — immune to background-tab setTimeout throttling.
+  // Each entry: { until: ms, restore: fn }
+  const debuffExpiry = {};
+
+  function scheduleDebuff(key, durationMs, restoreFn) {
+    // If already active, cancel old restore and overwrite
+    if (debuffExpiry[key]) delete debuffExpiry[key];
+    debuffExpiry[key] = { until: Date.now() + durationMs, restore: restoreFn };
+  }
+
+  function checkDebuffExpiry() {
+    const now = Date.now();
+    Object.keys(debuffExpiry).forEach(key => {
+      if (now >= debuffExpiry[key].until) {
+        debuffExpiry[key].restore();
+        delete debuffExpiry[key];
+      }
+    });
+  }
+
+  // Force a full state sync when the player returns to this tab
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      checkDebuffExpiry(); // expire any debuffs that ended while away
+      recalcCps();
+      updateDisplay();
+      renderUpgrades();
+      renderAttacks();
+      lastGameTick = Date.now(); // reset delta so we don't catch up all the missed time
+    }
+  });
+
+  let lastGameTick = Date.now();
   setInterval(() => {
+    const now = Date.now();
+    // Cap elapsed time at 200ms — prevents a huge cookie windfall after returning from
+    // a long background stint, and stops drain from wiping cookies unfairly.
+    const dt = Math.min(now - lastGameTick, 200) / 1000;
+    lastGameTick = now;
+
+    // Check if any debuffs have expired (handles background-tab timer throttling)
+    checkDebuffExpiry();
+
     // AFK check
-    if (myName && !afkFrozen && Date.now() - lastActivity > AFK_MS) {
+    if (myName && !afkFrozen && now - lastActivity > AFK_MS) {
       afkFrozen = true;
       showAfkOverlay();
     }
 
-    if (afkFrozen) return; // production paused while AFK
+    if (afkFrozen) return;
 
-    let gained = totalCps / 20;
-    if (drainAmount > 0) gained -= drainAmount / 20;
-    if (gained !== 0) {
+    const gained = (totalCps - drainAmount) * dt;
+    if (gained !== 0 || totalCps > 0) {
       cookies = Math.max(0, cookies + gained);
-      updateDisplay();
-      renderUpgrades();
-      renderAttacks();
-    } else if (totalCps > 0) {
       updateDisplay();
       renderUpgrades();
       renderAttacks();
@@ -1491,38 +1504,33 @@
     // Attack received
     socket.on('attack_hit', ({ attackId, attackerName }) => {
       if (attackId === 'freeze10') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 10000, '❄️ Freeze Ray I! CPS=0 for 10s');
-        setTimeout(() => { totalCps = prev; }, 10000);
+        scheduleDebuff('freeze', 10000, () => { totalCps = prev; });
       } else if (attackId === 'freeze20') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 20000, '🧊 Freeze Ray II! CPS=0 for 20s');
-        setTimeout(() => { totalCps = prev; }, 20000);
+        scheduleDebuff('freeze', 20000, () => { totalCps = prev; });
       } else if (attackId === 'freeze30') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 30000, '💎 Freeze Ray III! CPS=0 for 30s');
-        setTimeout(() => { totalCps = prev; }, 30000);
+        scheduleDebuff('freeze', 30000, () => { totalCps = prev; });
       } else if (attackId === 'curse') {
-        drainAmount = 20;
+        drainAmount += 20;
         applyDebuff('curse', 20000, '☠️ Cursed! -20/sec');
-        setTimeout(() => { drainAmount = 0; }, 20000);
+        scheduleDebuff('curse', 20000, () => { drainAmount = Math.max(0, drainAmount - 20); });
       } else if (attackId === 'virus') {
-        const prev = totalCps;
-        totalCps = Math.floor(prev / 2);
+        const prev = totalCps; totalCps = Math.floor(prev / 2);
         applyDebuff('virus', 25000, '🦠 Virus! CPS halved');
-        setTimeout(() => { totalCps = prev; }, 25000);
+        scheduleDebuff('virus', 25000, () => { totalCps = prev; });
       } else if (attackId === 'drain') {
-        drainAmount = (drainAmount || 0) + 100;
+        drainAmount += 100;
         applyDebuff('drain', 15000, '🕳️ Drained! -100/sec');
-        setTimeout(() => { drainAmount = Math.max(0, drainAmount - 100); }, 15000);
+        scheduleDebuff('drain', 15000, () => { drainAmount = Math.max(0, drainAmount - 100); });
       } else if (attackId === 'timetheft') {
-        const prev = totalCps;
-        totalCps = -prev;
+        const prev = totalCps; totalCps = -prev;
         applyDebuff('timetheft', 30000, '⏳ Time Theft! CPS reversed');
-        setTimeout(() => { totalCps = prev; }, 30000);
+        scheduleDebuff('timetheft', 30000, () => { totalCps = prev; });
       } else if (attackId === 'steal10k') {
         cookies = Math.max(0, cookies - 10000);
         applyDebuff('steal', 3000, '💸 Cookie Snatch! Lost 10,000 cookies');

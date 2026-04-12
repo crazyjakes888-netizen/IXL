@@ -154,11 +154,14 @@ io.on('connection', (socket) => {
   socket.on('save_progress', ({ cookies, owned }) => {
     const uname = (players[socket.id] && players[socket.id].name) || socket._authedName;
     if (!uname) return;
+    const val = Math.max(0, Math.floor(Number(cookies) || 0));
     if (accounts[uname]) {
-      accounts[uname].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+      accounts[uname].cookies = val;
       accounts[uname].owned = owned || {};
       saveAccounts();
     }
+    // Keep players in sync so disconnect handler never overwrites with a stale lower value
+    if (players[socket.id]) players[socket.id].cookies = val;
   });
 
   socket.on('join', (name) => {
@@ -623,8 +626,9 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
-      // Persist latest cookie count on disconnect (save_progress fires every 1s so this is a safety net)
-      if (accounts[name] && players[socket.id].cookies > 0) {
+      // Persist latest cookie count on disconnect — take the higher of in-memory vs already saved
+      // (save_progress may have already written a more recent value via the beacon)
+      if (accounts[name] && players[socket.id].cookies > (accounts[name].cookies || 0)) {
         accounts[name].cookies = players[socket.id].cookies;
         saveAccounts();
       }
