@@ -1350,13 +1350,13 @@
 
   // Save every second
   setInterval(saveProgress, 1000);
-  // Save when tab closes
-  window.addEventListener('beforeunload', () => {
+  // Save when tab closes (beforeunload + pagehide for browser compatibility)
+  function doBeaconSave() {
     if (!myName) return;
-    // sendBeacon is guaranteed to fire even as the page closes
-    // Use Blob to force application/json — plain string sends text/plain which express.json() ignores
     navigator.sendBeacon('/save', new Blob([JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned })], { type: 'application/json' }));
-  });
+  }
+  window.addEventListener('beforeunload', doBeaconSave);
+  window.addEventListener('pagehide', doBeaconSave);
 
   // ---- Join ----
   function startGame(name, existingSocket) {
@@ -1700,6 +1700,35 @@
       });
     });
 
+    socket.on('fah', () => {
+      // FAH: sharp, loud air-horn burst (synthesized)
+      const ctx = getAudioCtx();
+      ctx.resume().then(() => {
+        const now = ctx.currentTime;
+        const gain = ctx.createGain();
+        // Quick loud attack, fast decay
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(1.2, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        gain.connect(ctx.destination);
+        // Two detuned oscillators for a brassy air-horn chord
+        [220, 277, 330].forEach(freq => {
+          const osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + 0.05);
+          const filt = ctx.createBiquadFilter();
+          filt.type = 'bandpass';
+          filt.frequency.value = 800;
+          filt.Q.value = 0.7;
+          osc.connect(filt);
+          filt.connect(gain);
+          osc.start(now);
+          osc.stop(now + 0.65);
+        });
+      });
+    });
+
     // ---- Voice Chat ----
     const ICE_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     let vcActive = false, vcStream = null, vcRecognition = null;
@@ -1850,7 +1879,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn /vcban /vcunban', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -1969,6 +1998,7 @@
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
+      adminLog('/fah (name)                    — blast a FAH air-horn at a player', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
       return;
@@ -2056,6 +2086,9 @@
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/fah') {
+      if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
+      socket.emit('admin_fah', parts.slice(1).join(' '));
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];
@@ -2085,6 +2118,7 @@
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
+      adminLog('/fah (name)                         — blast a FAH air-horn', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                     — remove VC ban', 'alog-warn');
     } else if (cmd === '/mute') {
@@ -2106,6 +2140,9 @@
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/fah') {
+      if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
+      socket.emit('admin_fah', parts.slice(1).join(' '));
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];
@@ -2115,7 +2152,7 @@
       if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
       socket.emit('admin_vcunban', parts.slice(1).join(' '));
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn /vcban /vcunban', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-err');
     }
   });
 

@@ -16,7 +16,9 @@ app.use(express.json());
 app.post('/save', (req, res) => {
   const { username, cookies, owned } = req.body || {};
   if (username && accounts[username]) {
-    accounts[username].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+    const incoming = Math.max(0, Math.floor(Number(cookies) || 0));
+    // Use max so a stale beacon can never overwrite a higher value saved by disconnect handler
+    accounts[username].cookies = Math.max(accounts[username].cookies || 0, incoming);
     if (owned) accounts[username].owned = owned;
     saveAccounts();
   }
@@ -532,6 +534,14 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `📯 Foghorned ${targetName}` });
   });
 
+  socket.on('admin_fah', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('fah');
+    socket.emit('admin_action_result', { ok: true, msg: `📢 FAH'd ${targetName}` });
+  });
+
   socket.on('admin_vcban', ({ targetName, duration }) => {
     if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const lower = targetName.toLowerCase();
@@ -640,7 +650,14 @@ io.on('connection', (socket) => {
   socket.on('vc_speech', (text) => {
     const name = players[socket.id] && players[socket.id].name;
     if (!name) return;
-    if (isBad(normalize(String(text).slice(0, 300)))) {
+    const raw = String(text).slice(0, 300);
+    // Chrome's Web Speech API auto-censors profanity with asterisks (e.g. "f***", "****")
+    // Detect censored words in addition to plaintext bad words
+    const hasCensored = raw.split(/\s+/).some(w =>
+      /\*{2,}/.test(w) ||           // "****" or "f***"
+      /[a-z]\*+[a-z]/i.test(w)      // "sh*t", "f**k"
+    );
+    if (hasCensored || isBad(normalize(raw))) {
       const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
       vcBans[name.toLowerCase()] = expiry;
       vcMembers.delete(socket.id);
