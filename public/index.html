@@ -47,11 +47,16 @@
     }
     #admin-btn:hover { background: #444; }
 
-    #lb-modal-btn {
+    #left-btns {
       position: absolute;
       left: 16px;
       top: 50%;
       transform: translateY(-50%);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    #lb-modal-btn, #vc-btn {
       background: #333;
       color: #fff;
       border: 1px solid #555;
@@ -60,7 +65,10 @@
       cursor: pointer;
       font-size: 0.8rem;
     }
-    #lb-modal-btn:hover { background: #444; }
+    #lb-modal-btn:hover, #vc-btn:hover:not(.vc-banned) { background: #444; }
+    #vc-btn.vc-active { background: #1a5c1a; border-color: #3a9a3a; }
+    #vc-btn.vc-active:hover { background: #1f6e1f; }
+    #vc-btn.vc-banned { background: #5c1a1a; border-color: #9a3a3a; color: #ff9999; cursor: not-allowed; font-size: 0.72rem; }
 
     #lb-modal-overlay {
       display: none;
@@ -637,7 +645,7 @@
     /* Tablet / iPad (600–900px) */
     @media (max-width: 900px) {
       header { padding: 10px 90px; font-size: 1rem; letter-spacing: 1px; }
-      #lb-modal-btn, #admin-btn { font-size: 0.72rem; padding: 4px 8px; }
+      #lb-modal-btn, #vc-btn, #admin-btn { font-size: 0.72rem; padding: 4px 8px; }
       #right-panel { width: 200px; min-width: 200px; }
       #admin-console { width: calc(100vw - 24px); right: 12px; left: 12px; }
       #lb-modal { width: 95vw; }
@@ -646,7 +654,8 @@
     /* Phone / very small screen (< 600px) */
     @media (max-width: 600px) {
       header { padding: 10px 75px; font-size: 0.82rem; letter-spacing: 0; }
-      #lb-modal-btn { left: 6px; font-size: 0.68rem; padding: 4px 6px; }
+      #left-btns { left: 6px; gap: 4px; }
+      #lb-modal-btn, #vc-btn { font-size: 0.62rem; padding: 4px 5px; }
       #admin-btn    { right: 6px; font-size: 0.68rem; padding: 4px 6px; }
       #main { flex-direction: column; overflow-y: auto; }
       #game-panel { overflow-y: visible; }
@@ -679,7 +688,10 @@
 </div>
 
 <header>
-  <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
+  <div id="left-btns">
+    <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
+    <button id="vc-btn" title="Voice Chat">🎤 VC</button>
+  </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
@@ -1447,11 +1459,29 @@
     });
 
     socket.on('banned', (info) => {
-      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#111;color:#ff5555;font-family:monospace;font-size:1.2rem;flex-direction:column;gap:12px;">
-        <div style="font-size:3rem">🔨</div>
-        <div>You have been banned.</div>
-        <div style="color:#888;font-size:0.9rem">${info === 'permanent' ? 'This ban is permanent.' : 'Duration: ' + info}</div>
-      </div>`;
+      const isPerm = info === 'permanent';
+      let secs = isPerm ? 0 : parseInt(info);
+      function fmtTime(s) {
+        if (s <= 0) return '0:00';
+        const m = Math.floor(s / 60), sec = s % 60;
+        return `${m}:${String(sec).padStart(2,'0')}`;
+      }
+      document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0d0000;color:#ff3333;font-family:monospace;flex-direction:column;gap:18px;text-align:center;padding:20px;">
+          <div style="font-size:5rem;animation:shake 0.5s infinite">🔨🔨🔨</div>
+          <div style="font-size:2.8rem;font-weight:bold;letter-spacing:3px;text-shadow:0 0 20px #ff0000">YOU ARE BANNED</div>
+          <div style="font-size:1.1rem;color:#ff8888">${isPerm ? '🔨 This ban is <b>permanent</b>. You are not welcome here.' : '⏱ Time remaining: <span id="ban-timer">' + fmtTime(secs) + '</span>'}</div>
+          <div style="font-size:2rem">🚫</div>
+        </div>
+        <style>@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}</style>`;
+      if (!isPerm) {
+        const timerEl = document.getElementById('ban-timer');
+        const iv = setInterval(() => {
+          secs--;
+          if (secs <= 0) { clearInterval(iv); timerEl.textContent = 'EXPIRED — refresh to reconnect.'; return; }
+          timerEl.textContent = fmtTime(secs);
+        }, 1000);
+      }
     });
 
     // Attack received
@@ -1603,6 +1633,140 @@
           osc.stop(now + 3.5);
         });
       });
+    });
+
+    // ---- Voice Chat ----
+    const ICE_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let vcActive = false, vcStream = null, vcRecognition = null;
+    const vcPeers = {}; // peerId -> RTCPeerConnection
+
+    function vcBtn() { return document.getElementById('vc-btn'); }
+
+    function fmtVcTime(s) {
+      if (s <= 0) return '0:00';
+      const m = Math.floor(s / 60), sec = s % 60;
+      return `${m}:${String(sec).padStart(2,'0')}`;
+    }
+
+    function createPeer(peerId) {
+      if (vcPeers[peerId]) return vcPeers[peerId];
+      const pc = new RTCPeerConnection(ICE_CFG);
+      vcPeers[peerId] = pc;
+      if (vcStream) vcStream.getTracks().forEach(t => pc.addTrack(t, vcStream));
+      pc.ontrack = (e) => {
+        let audio = document.getElementById('vc-audio-' + peerId);
+        if (!audio) { audio = document.createElement('audio'); audio.id = 'vc-audio-' + peerId; audio.autoplay = true; document.body.appendChild(audio); }
+        audio.srcObject = e.streams[0];
+      };
+      pc.onicecandidate = (e) => { if (e.candidate) socket.emit('vc_ice', { to: peerId, candidate: e.candidate }); };
+      pc.onconnectionstatechange = () => { if (['disconnected','failed','closed'].includes(pc.connectionState)) closePeer(peerId); };
+      return pc;
+    }
+
+    function closePeer(peerId) {
+      if (vcPeers[peerId]) { vcPeers[peerId].close(); delete vcPeers[peerId]; }
+      const el = document.getElementById('vc-audio-' + peerId);
+      if (el) el.remove();
+    }
+
+    async function joinVC() {
+      if (vcActive || vcBtn().classList.contains('vc-banned')) return;
+      try {
+        vcStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch(e) {
+        alert('Microphone access denied: ' + e.message);
+        return;
+      }
+      vcActive = true;
+      vcBtn().classList.add('vc-active');
+      vcBtn().textContent = '🎤 VC ●';
+      socket.emit('vc_join');
+
+      // Speech recognition — send transcript to server for bad-word check
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) {
+        vcRecognition = new SR();
+        vcRecognition.continuous = true;
+        vcRecognition.interimResults = false;
+        vcRecognition.lang = 'en-US';
+        vcRecognition.onresult = (ev) => {
+          const text = Array.from(ev.results).slice(ev.resultIndex).map(r => r[0].transcript).join(' ');
+          if (text.trim()) socket.emit('vc_speech', text);
+        };
+        vcRecognition.onerror = () => {};
+        vcRecognition.onend = () => { if (vcActive) try { vcRecognition.start(); } catch(e) {} };
+        vcRecognition.start();
+      }
+    }
+
+    function leaveVC() {
+      vcActive = false;
+      if (vcRecognition) { try { vcRecognition.stop(); } catch(e) {} vcRecognition = null; }
+      Object.keys(vcPeers).forEach(id => closePeer(id));
+      if (vcStream) { vcStream.getTracks().forEach(t => t.stop()); vcStream = null; }
+      const btn = vcBtn();
+      if (btn && !btn.classList.contains('vc-banned')) {
+        btn.classList.remove('vc-active');
+        btn.textContent = '🎤 VC';
+      }
+      socket.emit('vc_leave');
+    }
+
+    document.getElementById('vc-btn').addEventListener('click', () => {
+      if (vcBtn().classList.contains('vc-banned')) return;
+      if (vcActive) leaveVC(); else joinVC();
+    });
+
+    // Existing members create offer to new joiner
+    socket.on('vc_peer_joined', async (peerId) => {
+      if (!vcActive) return;
+      const pc = createPeer(peerId);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('vc_offer', { to: peerId, offer: pc.localDescription });
+    });
+
+    // New joiner receives offer, sends answer
+    socket.on('vc_offer', async ({ from, offer }) => {
+      if (!vcActive) return;
+      const pc = createPeer(from);
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('vc_answer', { to: from, answer: pc.localDescription });
+    });
+
+    socket.on('vc_answer', async ({ from, answer }) => {
+      const pc = vcPeers[from];
+      if (!pc) return;
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on('vc_ice', async ({ from, candidate }) => {
+      const pc = vcPeers[from];
+      if (!pc) return;
+      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+    });
+
+    socket.on('vc_peer_left', (peerId) => { closePeer(peerId); });
+
+    socket.on('vc_banned', (secs) => {
+      leaveVC();
+      let remaining = secs;
+      const btn = vcBtn();
+      btn.classList.remove('vc-active');
+      btn.classList.add('vc-banned');
+      btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
+      const iv = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(iv);
+          btn.classList.remove('vc-banned');
+          btn.textContent = '🎤 VC';
+        } else {
+          btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
+        }
+      }, 1000);
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {

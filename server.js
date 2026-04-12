@@ -35,6 +35,8 @@ const SUB_ADMIN_PASSWORD = '3148';
 const subAdmins = new Set();
 const subAdminBanned = new Set(); // usernames banned from using sub-admin
 const admins = new Set();       // socket IDs
+const vcMembers = new Set();    // socket IDs currently in voice chat
+const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 
@@ -534,6 +536,44 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  // ---- Voice Chat ----
+  socket.on('vc_join', () => {
+    const name = players[socket.id] && players[socket.id].name;
+    if (!name) return;
+    const lower = name.toLowerCase();
+    if (vcBans[lower] && vcBans[lower] > Date.now()) {
+      socket.emit('vc_banned', Math.ceil((vcBans[lower] - Date.now()) / 1000));
+      return;
+    }
+    delete vcBans[lower]; // expired
+    vcMembers.add(socket.id);
+    // Tell existing members to create offers to the new joiner
+    vcMembers.forEach(id => { if (id !== socket.id) io.to(id).emit('vc_peer_joined', socket.id); });
+    socket.emit('vc_joined');
+  });
+
+  socket.on('vc_leave', () => {
+    vcMembers.delete(socket.id);
+    vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
+  });
+
+  socket.on('vc_offer',  ({ to, offer })     => { io.to(to).emit('vc_offer',  { from: socket.id, offer }); });
+  socket.on('vc_answer', ({ to, answer })    => { io.to(to).emit('vc_answer', { from: socket.id, answer }); });
+  socket.on('vc_ice',    ({ to, candidate }) => { io.to(to).emit('vc_ice',    { from: socket.id, candidate }); });
+
+  socket.on('vc_speech', (text) => {
+    const name = players[socket.id] && players[socket.id].name;
+    if (!name) return;
+    if (isBad(normalize(String(text).slice(0, 300)))) {
+      const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      vcBans[name.toLowerCase()] = expiry;
+      vcMembers.delete(socket.id);
+      vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
+      socket.emit('vc_banned', 3600);
+      io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 1 hour (bad language).`, time: Date.now() });
+    }
+  });
+
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
@@ -551,6 +591,9 @@ io.on('connection', (socket) => {
       delete players[socket.id];
       admins.delete(socket.id);
       subAdmins.delete(socket.id);
+      if (vcMembers.delete(socket.id)) {
+        vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
+      }
       io.emit('leaderboard', getLeaderboard());
     }
   });
