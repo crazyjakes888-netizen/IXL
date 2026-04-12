@@ -33,6 +33,7 @@ const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
 const SUB_ADMIN_PASSWORD = '3148';
 const subAdmins = new Set();
+const subAdminBanned = new Set(); // usernames banned from using sub-admin
 const admins = new Set();       // socket IDs
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
@@ -305,6 +306,11 @@ io.on('connection', (socket) => {
       socket.emit('admin_result', { success: true, role: 'admin' });
       socket.emit('admin_playerlist', getPlayerList());
     } else if (password === SUB_ADMIN_PASSWORD) {
+      const name = players[socket.id] && players[socket.id].name;
+      if (name && subAdminBanned.has(name.toLowerCase())) {
+        socket.emit('admin_result', { success: false });
+        return;
+      }
       subAdmins.add(socket.id);
       socket.emit('admin_result', { success: true, role: 'subadmin' });
       socket.emit('admin_playerlist', getPlayerList());
@@ -410,6 +416,25 @@ io.on('connection', (socket) => {
     }
     socket.emit('admin_action_result', { ok: true, msg: `Deleted account: ${targetName}` });
     io.emit('leaderboard', getLeaderboard());
+  });
+
+  socket.on('admin_subadminban', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    subAdminBanned.add(targetName.toLowerCase());
+    // Kick them if currently logged in as sub-admin
+    Object.entries(players).forEach(([sid, p]) => {
+      if (p.name.toLowerCase() === targetName.toLowerCase() && subAdmins.has(sid)) {
+        subAdmins.delete(sid);
+        io.to(sid).emit('force_logout', 'Your sub-admin access has been revoked.');
+      }
+    });
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} is banned from sub-admin.` });
+  });
+
+  socket.on('admin_subadminunban', (targetName) => {
+    if (!admins.has(socket.id)) return;
+    subAdminBanned.delete(targetName.toLowerCase());
+    socket.emit('admin_action_result', { ok: true, msg: `${targetName} can use sub-admin again.` });
   });
 
   socket.on('admin_autowhite', (targetName) => {
