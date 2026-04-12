@@ -315,14 +315,35 @@
       overflow: hidden;
     }
 
+    /* Ensure left-btns are always on top of header text */
+    #left-btns { z-index: 10; }
+
     /* === GAME PANEL === */
     #game-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Cookie button area — never scrolls away */
+    #cookie-area {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 10px 16px;
+      padding: 10px 16px 6px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Everything below the cookie button scrolls */
+    #upgrades-scroll {
+      flex: 1;
       overflow-y: auto;
+      padding: 0 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       gap: 8px;
     }
 
@@ -641,7 +662,7 @@
       #lb-modal-btn, #vc-btn { font-size: 0.62rem; padding: 4px 5px; }
       #admin-btn    { right: 6px; font-size: 0.68rem; padding: 4px 6px; }
       #main { flex-direction: column; overflow-y: auto; }
-      #game-panel { overflow-y: visible; }
+      #upgrades-scroll { overflow-y: visible; }
       #right-panel {
         width: 100%; min-width: 0;
         border-left: none;
@@ -732,24 +753,30 @@
 
 <div id="main">
   <div id="game-panel">
-    <div id="cookie-count">0 cookies</div>
-    <div id="cps-display">0 cookies/sec</div>
-    <div id="cookie-row">
-      <button id="cookie-btn" title="Click me!">🍪</button>
-      <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+    <!-- Cookie area: always visible, never scrolls -->
+    <div id="cookie-area">
+      <div id="cookie-count">0 cookies</div>
+      <div id="cps-display">0 cookies/sec</div>
+      <div id="cookie-row">
+        <button id="cookie-btn" title="Click me!">🍪</button>
+        <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+      </div>
     </div>
-    <div id="upgrades-title">Upgrades</div>
-    <div id="upgrades"></div>
-    <div id="powerups-title">⚡ Power-Ups</div>
-    <div id="powerups"></div>
-    <div id="debuffs-display"></div>
-    <div id="attacks-title">⚔️ Attacks</div>
-    <div id="attack-target-row">
-      <span style="color:#aaa;font-size:0.8rem;">Target:</span>
-      <select id="attack-target"><option value="">— pick player —</option></select>
+    <!-- Upgrades/attacks area: scrollable -->
+    <div id="upgrades-scroll">
+      <div id="upgrades-title">Upgrades</div>
+      <div id="upgrades"></div>
+      <div id="powerups-title">⚡ Power-Ups</div>
+      <div id="powerups"></div>
+      <div id="debuffs-display"></div>
+      <div id="attacks-title">⚔️ Attacks</div>
+      <div id="attack-target-row">
+        <span style="color:#aaa;font-size:0.8rem;">Target:</span>
+        <select id="attack-target"><option value="">— pick player —</option></select>
+      </div>
+      <div id="attack-error-msg"></div>
+      <div id="attacks"></div>
     </div>
-    <div id="attack-error-msg"></div>
-    <div id="attacks"></div>
   </div>
 
   <div id="right-panel">
