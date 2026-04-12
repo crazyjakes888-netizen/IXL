@@ -548,11 +548,13 @@ io.on('connection', (socket) => {
     const isPerm = duration === 'perm';
     const secs = isPerm ? Infinity : (parseInt(duration) || 3600);
     vcBans[lower] = isPerm ? Infinity : Date.now() + secs * 1000;
-    // Kick them from VC if currently in it
+    // Notify the target immediately whether or not they're in VC
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === lower);
-    if (entry && vcMembers.has(entry[0])) {
-      vcMembers.delete(entry[0]);
-      vcMembers.forEach(id => io.to(id).emit('vc_peer_left', entry[0]));
+    if (entry) {
+      if (vcMembers.has(entry[0])) {
+        vcMembers.delete(entry[0]);
+        vcMembers.forEach(id => io.to(id).emit('vc_peer_left', entry[0]));
+      }
       io.to(entry[0]).emit('vc_banned', isPerm ? 99999 : secs);
     }
     const label = isPerm ? 'permanently' : `for ${secs}s`;
@@ -562,8 +564,10 @@ io.on('connection', (socket) => {
   socket.on('admin_vcunban', (targetName) => {
     if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const lower = targetName.toLowerCase();
-    if (!vcBans[lower]) { socket.emit('admin_action_result', { ok: false, msg: `No VC ban found for "${targetName}".` }); return; }
-    delete vcBans[lower];
+    delete vcBans[lower]; // Delete even if not found (idempotent)
+    // Tell the target their ban is lifted so their UI clears immediately
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === lower);
+    if (entry) io.to(entry[0]).emit('vc_unbanned');
     socket.emit('admin_action_result', { ok: true, msg: `✅ ${targetName} VC ban removed.` });
   });
 

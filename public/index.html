@@ -1301,7 +1301,11 @@
 
   // Force a full state sync when the player returns to this tab
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+    if (document.hidden) {
+      // Save immediately via socket when tab is hidden — fires before beforeunload
+      // so the server has the latest value even if the beacon races with auth
+      saveProgress();
+    } else {
       checkDebuffExpiry(); // expire any debuffs that ended while away
       recalcCps();
       updateDisplay();
@@ -1846,8 +1850,17 @@
 
     socket.on('vc_peer_left', (peerId) => { closePeer(peerId); });
 
+    let vcBanTimer = null;
+    function clearVcBan() {
+      if (vcBanTimer) { clearInterval(vcBanTimer); vcBanTimer = null; }
+      const btn = vcBtn();
+      btn.classList.remove('vc-banned');
+      btn.textContent = '🎤 VC';
+    }
+
     socket.on('vc_banned', (secs) => {
       leaveVC();
+      if (vcBanTimer) clearInterval(vcBanTimer);
       let remaining = secs;
       const isPerm = remaining >= 86400;
       const btn = vcBtn();
@@ -1855,17 +1868,19 @@
       btn.classList.add('vc-banned');
       btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
       if (!isPerm) {
-        const iv = setInterval(() => {
+        vcBanTimer = setInterval(() => {
           remaining--;
           if (remaining <= 0) {
-            clearInterval(iv);
-            btn.classList.remove('vc-banned');
-            btn.textContent = '🎤 VC';
+            clearVcBan();
           } else {
             btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
           }
         }, 1000);
       }
+    });
+
+    socket.on('vc_unbanned', () => {
+      clearVcBan();
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
@@ -2183,11 +2198,22 @@
       document.getElementById('auth-error').textContent = msg;
       return;
     }
-    // Always trust server data — it's authoritative across devices
-    cookies = savedCookies || 0;
-    const serverOwned = savedOwned || {};
-    Object.keys(serverOwned).forEach(k => {
-      if (owned[k] !== undefined) owned[k] = Number(serverOwned[k]) || 0;
+    // Start with server value, then check localStorage for a more recent snapshot.
+    // This handles the race where the page re-auth fires before the sendBeacon POST
+    // arrives at the server — the client would get 0, then overwrite the correct
+    // beacon value with 0 on the next save_progress tick.
+    let finalCookies = savedCookies || 0;
+    let finalOwned = savedOwned || {};
+    try {
+      const local = JSON.parse(localStorage.getItem('cc_' + username) || 'null');
+      if (local && (local.cookies || 0) > finalCookies) {
+        finalCookies = local.cookies;
+        if (local.owned) finalOwned = local.owned; // localStorage is more recent
+      }
+    } catch(e) {}
+    cookies = finalCookies;
+    Object.keys(finalOwned).forEach(k => {
+      if (owned[k] !== undefined) owned[k] = Number(finalOwned[k]) || 0;
     });
     recalcCps();
     startGame(username, socket0);
