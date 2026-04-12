@@ -805,6 +805,7 @@
   document.addEventListener('click',      () => getAudioCtx(), { once: true, passive: true });
 
   const UPGRADES = [
+    // ---- Passive CPS ----
     { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
     { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
     { id: 'farm',       name: '🌾 Farm',           desc: '+5/sec',            baseCost: 500,      clickPower: 0,    cps: 5 },
@@ -821,22 +822,35 @@
     { id: 'prism',      name: '🔮 Prism',          desc: '+200K/sec',         baseCost: 3e8,      clickPower: 0,    cps: 200000 },
     { id: 'chancemaker',name: '🎲 Chancemaker',    desc: '+1M/sec',           baseCost: 1e9,      clickPower: 0,    cps: 1000000 },
     { id: 'fractal',    name: '🌌 Fractal Engine', desc: '+5M/sec',           baseCost: 5e9,      clickPower: 0,    cps: 5000000 },
-    { id: 'megaclick',  name: '👆 Mega Click',     desc: '+10 click',         baseCost: 50000,    clickPower: 10,   cps: 0 },
-    { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+50 click',         baseCost: 500000,   clickPower: 50,   cps: 0 },
-    { id: 'godclick',   name: '✨ God Click',      desc: '+200 click',        baseCost: 5000000,  clickPower: 200,  cps: 0 },
-    { id: 'omnclick',   name: '💥 Omni Click',     desc: '+1000 click',       baseCost: 50000000, clickPower: 1000, cps: 0 },
     { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec (frost)',    baseCost: 4000,     clickPower: 0,    cps: 8 },
     { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec (frost)',   baseCost: 30000,    clickPower: 0,    cps: 40 },
-    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,    clickPower: 0,    cps: 150 },
-    // OP Tier
-    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+2K/sec',           baseCost: 8000000,   clickPower: 0,    cps: 2000 },
-    { id: 'megaportal', name: '🌐 Mega Portal',     desc: '+25K/sec',          baseCost: 1e8,       clickPower: 0,    cps: 25000 },
-    { id: 'quantumcpu', name: '🧬 Quantum CPU',     desc: '+200K/sec',         baseCost: 5e9,       clickPower: 0,    cps: 200000 },
-    { id: 'darkmatter', name: '🖤 Dark Matter',     desc: '+1M/sec',           baseCost: 5e10,      clickPower: 0,    cps: 1000000 },
-    { id: 'multiverse', name: '🌌 Multiverse',      desc: '+5M/sec',           baseCost: 2.5e11,    clickPower: 0,    cps: 5000000 },
-    { id: 'cookiegod',  name: '👑 Cookie God',      desc: '+20M/sec',          baseCost: 1e12,      clickPower: 0,    cps: 20000000 },
-    { id: 'hyperclk',   name: '🚀 Hyper Click',     desc: '+10K click',        baseCost: 1e8,       clickPower: 10000, cps: 0 },
-    { id: 'godsmash',   name: '⚡ God Smash',       desc: '+100K click',       baseCost: 1e10,      clickPower: 100000, cps: 0 },
+    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,   clickPower: 0,    cps: 150 },
+    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+2K/sec',           baseCost: 8000000,  clickPower: 0,    cps: 2000 },
+    { id: 'megaportal', name: '🌐 Mega Portal',    desc: '+25K/sec',          baseCost: 1e8,      clickPower: 0,    cps: 25000 },
+    { id: 'quantumcpu', name: '🧬 Quantum CPU',    desc: '+200K/sec',         baseCost: 5e9,      clickPower: 0,    cps: 200000 },
+    { id: 'darkmatter', name: '🖤 Dark Matter',    desc: '+1M/sec',           baseCost: 5e10,     clickPower: 0,    cps: 1000000 },
+    { id: 'multiverse', name: '🌌 Multiverse',     desc: '+5M/sec',           baseCost: 2.5e11,   clickPower: 0,    cps: 5000000 },
+    { id: 'cookiegod',  name: '👑 Cookie God',     desc: '+20M/sec',          baseCost: 1e12,     clickPower: 0,    cps: 20000000 },
+
+    // ---- Click Power (beginner → endgame) ----
+    { id: 'doubletap',  name: '✌️ Double Tap',     desc: '+2 click',          baseCost: 50,       clickPower: 2,    cps: 0 },
+    { id: 'stronghand', name: '💪 Strong Hand',    desc: '+4 click',          baseCost: 200,      clickPower: 4,    cps: 0 },
+    { id: 'quickfinger',name: '☝️ Quick Finger',   desc: '+8 click',          baseCost: 750,      clickPower: 8,    cps: 0 },
+    { id: 'powerclick', name: '🔥 Power Click',    desc: '+15 click',         baseCost: 2500,     clickPower: 15,   cps: 0 },
+    { id: 'megaclick',  name: '👆 Mega Click',     desc: '+30 click',         baseCost: 8000,     clickPower: 30,   cps: 0 },
+    { id: 'speedclick', name: '💨 Speed Click',    desc: '+60 click',         baseCost: 25000,    clickPower: 60,   cps: 0 },
+    { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+120 click',        baseCost: 80000,    clickPower: 120,  cps: 0 },
+    { id: 'superclick', name: '🌟 Super Click',    desc: '+250 click',        baseCost: 250000,   clickPower: 250,  cps: 0 },
+    { id: 'godclick',   name: '✨ God Click',      desc: '+500 click',        baseCost: 750000,   clickPower: 500,  cps: 0 },
+    { id: 'omegaclick', name: '🌀 Omega Click',    desc: '+1K click',         baseCost: 2500000,  clickPower: 1000, cps: 0 },
+    { id: 'omnclick',   name: '💥 Omni Click',     desc: '+2.5K click',       baseCost: 8000000,  clickPower: 2500, cps: 0 },
+    { id: 'blastclick', name: '💣 Blast Click',    desc: '+6K click',         baseCost: 30000000, clickPower: 6000, cps: 0 },
+    { id: 'hyperclk',   name: '🚀 Hyper Click',    desc: '+15K click',        baseCost: 1e8,      clickPower: 15000, cps: 0 },
+    { id: 'cosmicclk',  name: '🌌 Cosmic Click',   desc: '+40K click',        baseCost: 4e8,      clickPower: 40000, cps: 0 },
+    { id: 'godsmash',   name: '⚡ God Smash',      desc: '+100K click',       baseCost: 1.5e9,    clickPower: 100000, cps: 0 },
+    { id: 'quantumclk', name: '⚛️ Quantum Click',  desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
+    { id: 'divineclk',  name: '👼 Divine Click',   desc: '+1M click',         baseCost: 5e10,     clickPower: 1000000, cps: 0 },
+    { id: 'infinityclk',name: '♾️ Infinity Click',  desc: '+5M click',         baseCost: 5e11,     clickPower: 5000000, cps: 0 },
   ];
 
   const POWERUPS = [
