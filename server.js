@@ -616,6 +616,16 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  socket.on('admin_setpassword', ({ targetName, newPassword }) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!targetName || !newPassword) { socket.emit('admin_action_result', { ok: false, msg: 'Usage: /setpassword (name) (newpass)' }); return; }
+    const key = Object.keys(accounts).find(k => k.toLowerCase() === targetName.toLowerCase());
+    if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found for "${targetName}".` }); return; }
+    accounts[key].pwHash = hashPw(newPassword);
+    saveAccounts();
+    socket.emit('admin_action_result', { ok: true, msg: `✅ Password for ${key} has been reset.` });
+  });
+
   socket.on('admin_unban', (targetName) => {
     if (!admins.has(socket.id)) return;
     const lower = targetName.toLowerCase();
