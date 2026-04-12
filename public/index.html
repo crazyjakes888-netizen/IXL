@@ -1576,6 +1576,35 @@
 
     });
 
+    socket.on('foghorn', () => {
+      const ctx = getAudioCtx();
+      ctx.resume().then(() => {
+        const now = ctx.currentTime;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.7, now + 0.15);
+        gain.gain.setValueAtTime(0.7, now + 2.8);
+        gain.gain.linearRampToValueAtTime(0, now + 3.5);
+        gain.connect(ctx.destination);
+        // Two slightly detuned oscillators for that foghorn "beat" effect
+        [88, 91].forEach(freq => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          // Slight frequency wobble
+          osc.frequency.linearRampToValueAtTime(freq * 0.98, now + 1.5);
+          osc.frequency.linearRampToValueAtTime(freq, now + 3.5);
+          const filt = ctx.createBiquadFilter();
+          filt.type = 'lowpass';
+          filt.frequency.value = 400;
+          osc.connect(filt);
+          filt.connect(gain);
+          osc.start(now);
+          osc.stop(now + 3.5);
+        });
+      });
+    });
+
     socket.on('admin_cookie_change', ({ amount, action }) => {
       if (action === 'add') cookies += amount;
       else cookies = Math.max(0, cookies - amount);
@@ -1588,7 +1617,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -1705,6 +1734,7 @@
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
+      adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1784,6 +1814,9 @@
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
+    } else if (cmd === '/foghorn') {
+      if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
+      socket.emit('admin_foghorn', parts.slice(1).join(' '));
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -1804,6 +1837,7 @@
       adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+      adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
     } else if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
@@ -1820,8 +1854,11 @@
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
+    } else if (cmd === '/foghorn') {
+      if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
+      socket.emit('admin_foghorn', parts.slice(1).join(' '));
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn', 'alog-err');
     }
   });
 

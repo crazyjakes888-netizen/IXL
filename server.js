@@ -491,6 +491,14 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `💀 Flashbanged ${targetName} (${volume || 'medium'})` });
   });
 
+  socket.on('admin_foghorn', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('foghorn');
+    socket.emit('admin_action_result', { ok: true, msg: `📯 Foghorned ${targetName}` });
+  });
+
   socket.on('admin_ipban', ({ ip, duration }) => {
     if (!admins.has(socket.id)) return;
     const isPerm = duration === 'perm';
