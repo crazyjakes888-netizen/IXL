@@ -457,19 +457,8 @@ io.on('connection', (socket) => {
 
   socket.on('admin_wipeall', () => {
     if (!admins.has(socket.id)) return;
-    // Wipe every account in storage
-    Object.keys(accounts).forEach(name => {
-      accounts[name].cookies = 0;
-      accounts[name].owned = {};
-    });
-    saveAccounts();
-    // Reset all live sessions
-    Object.keys(players).forEach(sid => {
-      players[sid].cookies = 0;
-      io.to(sid).emit('admin_reset_you');
-    });
+    doWipeAll();
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
-    io.emit('leaderboard', getLeaderboard());
   });
 
   socket.on('admin_wipe_upgrades', (targetName) => {
@@ -622,6 +611,39 @@ io.on('connection', (socket) => {
 setInterval(() => {
   io.emit('leaderboard', getLeaderboard());
 }, 2000);
+
+// ---- Shared wipe-all logic ----
+function doWipeAll() {
+  Object.keys(accounts).forEach(name => {
+    accounts[name].cookies = 0;
+    accounts[name].owned = {};
+  });
+  saveAccounts();
+  Object.keys(players).forEach(sid => {
+    players[sid].cookies = 0;
+    io.to(sid).emit('admin_reset_you');
+  });
+  io.emit('leaderboard', getLeaderboard());
+}
+
+// ---- Daily midnight CST reset ----
+// CST = UTC-6, CDT = UTC-5. We schedule for 06:00 UTC which is midnight CST
+// (and 01:00 CST during CDT — close enough, and avoids DST complexity).
+function scheduleMidnightWipe() {
+  const now = new Date();
+  // Next 06:00 UTC
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0, 0));
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // already past today's 06:00, use tomorrow
+  const msUntil = next - now;
+  console.log(`[Reset] Next daily wipe in ${Math.round(msUntil / 60000)} minutes (at ${next.toUTCString()})`);
+  setTimeout(() => {
+    console.log('[Reset] Running daily midnight CST wipe...');
+    doWipeAll();
+    io.emit('chat', { system: true, msg: '🌙 Daily reset! All cookies and upgrades have been wiped. Good luck!', time: Date.now() });
+    scheduleMidnightWipe(); // schedule the next one
+  }, msUntil);
+}
+scheduleMidnightWipe();
 
 function getPlayerList() {
   return Object.entries(players).map(([id, p]) => ({
