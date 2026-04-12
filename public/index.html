@@ -1555,7 +1555,7 @@
       setTimeout(() => { window.location.href = 'about:blank'; }, 100);
     });
 
-    socket.on('jumpscare', ({ volume } = {}) => {
+    socket.on('flashbang', ({ volume } = {}) => {
       // Flashbang: white blinding flash with grenade emoji
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:25vw;transition:opacity 1.5s;';
@@ -1588,7 +1588,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /jumpscare', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -1704,7 +1704,7 @@
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
-      adminLog('/jumpscare (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1778,12 +1778,12 @@
     } else if (cmd === '/kick') {
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
       socket.emit('admin_kick', parts.slice(1).join(' '));
-    } else if (cmd === '/jumpscare') {
-      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet]', 'alog-err'); return; }
+    } else if (cmd === '/flashbang') {
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet]', 'alog-err'); return; }
       const VOLS = ['loud','medium','quiet','lol'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
-      socket.emit('admin_jumpscare', { targetName, volume: vol });
+      socket.emit('admin_flashbang', { targetName, volume: vol });
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -1803,7 +1803,7 @@
       adminLog('/mute (name)                        — name-based mute', 'alog-warn');
       adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
-      adminLog('/jumpscare (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
     } else if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
@@ -1814,14 +1814,14 @@
       if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
       const secs = parts[parts.length - 1];
       socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
-    } else if (cmd === '/jumpscare') {
-      if (!parts[1]) { adminLog('Usage: /jumpscare (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
+    } else if (cmd === '/flashbang') {
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
       const VOLS = ['loud','medium','quiet','lol'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
-      socket.emit('admin_jumpscare', { targetName, volume: vol });
+      socket.emit('admin_flashbang', { targetName, volume: vol });
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /jumpscare', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang', 'alog-err');
     }
   });
 
