@@ -1641,8 +1641,9 @@
       setTimeout(() => overlay.remove(), 2000);
 
       // Flashbang sound
-      if (volume === 'god') {
-        // 400% volume via Web Audio API GainNode (bypasses 1.0 HTMLAudio cap)
+      if (volume === 'god' || volume === 'boom') {
+        // god=400%, boom=1000% via Web Audio API GainNode (bypasses 1.0 HTMLAudio cap)
+        const gainVal = volume === 'boom' ? 10.0 : 4.0;
         const ctx = getAudioCtx();
         ctx.resume().then(() => {
           fetch('/flashbang-SoundEffectPro.mp3')
@@ -1652,7 +1653,7 @@
               const src = ctx.createBufferSource();
               src.buffer = decoded;
               const gain = ctx.createGain();
-              gain.gain.value = 4.0;
+              gain.gain.value = gainVal;
               src.connect(gain);
               gain.connect(ctx.destination);
               src.start(ctx.currentTime, 1.7);
@@ -1996,7 +1997,7 @@
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang a player', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
       adminLog('/fah (name)                    — blast a FAH air-horn at a player', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
@@ -2078,8 +2079,8 @@
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
       socket.emit('admin_kick', parts.slice(1).join(' '));
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol','god'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god/boom]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god','boom'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
@@ -2116,7 +2117,7 @@
       adminLog('/mute (name)                        — name-based mute', 'alog-warn');
       adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
       adminLog('/fah (name)                         — blast a FAH air-horn', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
@@ -2132,8 +2133,8 @@
       const secs = parts[parts.length - 1];
       socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol','god'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god/boom]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god','boom'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
