@@ -194,6 +194,16 @@ io.on('connection', (socket) => {
     if (adminNames.has(safeName)) admins.add(socket.id);
     // Restore autoclicker whitelist status
     if (acWhitelist.has(safeName)) socket.emit('ac_whitelisted');
+    // Notify client immediately if they have an active VC ban (survives refresh)
+    const vcLower = safeName.toLowerCase();
+    if (vcBans[vcLower]) {
+      if (vcBans[vcLower] === Infinity || vcBans[vcLower] > Date.now()) {
+        const remaining = vcBans[vcLower] === Infinity ? 99999 : Math.ceil((vcBans[vcLower] - Date.now()) / 1000);
+        socket.emit('vc_banned', remaining);
+      } else {
+        delete vcBans[vcLower]; // expired, clean up
+      }
+    }
   });
 
   socket.on('update_score', ({ cookies, cps }) => {
@@ -362,9 +372,11 @@ io.on('connection', (socket) => {
     const secs = Math.max(1, parseInt(seconds) || 30);
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === name.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
-    mutedIPs[entry[1].ip] = Date.now() + secs * 1000;
-    io.emit('chat', { system: true, msg: `⏱️ ${name} timed out for ${secs}s.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Timed out ${name} for ${secs}s.` });
+    const lower = entry[1].name.toLowerCase();
+    mutedNames.add(lower);
+    setTimeout(() => mutedNames.delete(lower), secs * 1000);
+    io.emit('chat', { system: true, msg: `⏱️ ${entry[1].name} timed out for ${secs}s.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Timed out ${entry[1].name} for ${secs}s.` });
   });
 
   socket.on('admin_cookies', ({ name, amount, action }) => {
@@ -575,7 +587,8 @@ io.on('connection', (socket) => {
     if (!name) return;
     const lower = name.toLowerCase();
     if (vcBans[lower] && vcBans[lower] > Date.now()) {
-      socket.emit('vc_banned', Math.ceil((vcBans[lower] - Date.now()) / 1000));
+      const remaining = vcBans[lower] === Infinity ? 99999 : Math.ceil((vcBans[lower] - Date.now()) / 1000);
+      socket.emit('vc_banned', remaining);
       return;
     }
     delete vcBans[lower]; // expired

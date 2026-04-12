@@ -1325,7 +1325,8 @@
   window.addEventListener('beforeunload', () => {
     if (!myName) return;
     // sendBeacon is guaranteed to fire even as the page closes
-    navigator.sendBeacon('/save', JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned }));
+    // Use Blob to force application/json — plain string sends text/plain which express.json() ignores
+    navigator.sendBeacon('/save', new Blob([JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned })], { type: 'application/json' }));
   });
 
   // ---- Join ----
@@ -1633,6 +1634,7 @@
 
     function fmtVcTime(s) {
       if (s <= 0) return '0:00';
+      if (s >= 86400) return 'PERM';
       const m = Math.floor(s / 60), sec = s % 60;
       return `${m}:${String(sec).padStart(2,'0')}`;
     }
@@ -1742,20 +1744,23 @@
     socket.on('vc_banned', (secs) => {
       leaveVC();
       let remaining = secs;
+      const isPerm = remaining >= 86400;
       const btn = vcBtn();
       btn.classList.remove('vc-active');
       btn.classList.add('vc-banned');
       btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
-      const iv = setInterval(() => {
-        remaining--;
-        if (remaining <= 0) {
-          clearInterval(iv);
-          btn.classList.remove('vc-banned');
-          btn.textContent = '🎤 VC';
-        } else {
-          btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
-        }
-      }, 1000);
+      if (!isPerm) {
+        const iv = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(iv);
+            btn.classList.remove('vc-banned');
+            btn.textContent = '🎤 VC';
+          } else {
+            btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
+          }
+        }, 1000);
+      }
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
