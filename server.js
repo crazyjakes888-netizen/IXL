@@ -39,6 +39,8 @@ const vcMembers = new Set();    // socket IDs currently in voice chat
 const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
+const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
+const acHardTimeouts = {};       // name.toLowerCase() -> expiry timestamp (10 min)
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -149,6 +151,20 @@ io.on('connection', (socket) => {
     admins.forEach(adminId => {
       io.to(adminId).emit('admin_action_result', { ok: false, msg });
     });
+
+    // 3-strike hard timeout: 3 locks → 10-minute cookie button lockout
+    if (locked) {
+      const lower = name.toLowerCase();
+      acLockCounts[lower] = (acLockCounts[lower] || 0) + 1;
+      if (acLockCounts[lower] >= 3) {
+        acLockCounts[lower] = 0;
+        acHardTimeouts[lower] = Date.now() + 600000; // 10 minutes
+        socket.emit('ac_hard_timeout', 600);
+        const htMsg = `🔨 [AC] ${name} hit 3 strikes — cookie button locked for 10 minutes`;
+        console.log(htMsg);
+        admins.forEach(adminId => io.to(adminId).emit('admin_action_result', { ok: false, msg: htMsg }));
+      }
+    }
   });
 
   socket.on('save_progress', ({ cookies, owned }) => {
@@ -205,6 +221,17 @@ io.on('connection', (socket) => {
         socket.emit('vc_banned', remaining);
       } else {
         delete vcBans[vcLower]; // expired, clean up
+      }
+    }
+
+    // Restore hard autoclicker timeout if still active (survives refresh)
+    const acLower = safeName.toLowerCase();
+    if (acHardTimeouts[acLower]) {
+      if (acHardTimeouts[acLower] > Date.now()) {
+        const remaining = Math.ceil((acHardTimeouts[acLower] - Date.now()) / 1000);
+        socket.emit('ac_hard_timeout', remaining);
+      } else {
+        delete acHardTimeouts[acLower]; // expired, clean up
       }
     }
   });

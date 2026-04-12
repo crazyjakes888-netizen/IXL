@@ -1090,6 +1090,7 @@
   let acFlagged = false;
   let acFlagStart = null;
   let acLocked = false;
+  let acHardLocked = false;
   let acHighCpsSeconds = 0;
   let acWhitelisted = false;
 
@@ -1136,15 +1137,16 @@
     setTimeout(() => {
       acLocked = false;
       acHighCpsSeconds = 0;
-      acSustainedMidSecs = 0;
       acOnOffCount = 0;
       clickTimes.length = 0;
       interClickGaps.length = 0;
       cpsHistory.length = 0;
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.textContent = '🍪';
-      showFlagBanner(false);
+      if (!acHardLocked) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = '🍪';
+        showFlagBanner(false);
+      }
       if (socket && myName) socket.emit('autoclicker_report', { unlocked: true });
     }, 10000);
   }
@@ -1597,6 +1599,37 @@
       setTimeout(() => { window.location.href = 'about:blank'; }, 100);
     });
 
+    socket.on('ac_hard_timeout', (secs) => {
+      acHardLocked = true;
+      const btn = document.getElementById('cookie-btn');
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      showFlagBanner(true);
+      let remaining = secs;
+      function fmtAcTime(s) {
+        const m = Math.floor(s / 60), sec = s % 60;
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+      function updateAcBtn() {
+        btn.textContent = '🔨 ' + fmtAcTime(remaining);
+      }
+      updateAcBtn();
+      const acHardTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(acHardTimer);
+          acHardLocked = false;
+          acLocked = false;
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.textContent = '🍪';
+          showFlagBanner(false);
+        } else {
+          updateAcBtn();
+        }
+      }, 1000);
+    });
+
     socket.on('flashbang', ({ volume } = {}) => {
       // Flashbang: white blinding flash with grenade emoji
       const overlay = document.createElement('div');
@@ -1608,13 +1641,33 @@
       setTimeout(() => overlay.remove(), 2000);
 
       // Flashbang sound
-      const snd = new Audio('/flashbang-SoundEffectPro.mp3');
-      snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
-      snd.currentTime = 1.7;
-      snd.addEventListener('loadedmetadata', () => {
-        setTimeout(() => snd.pause(), (snd.duration - snd.currentTime - 3.5) * 1000);
-      });
-      snd.play().catch(() => {});
+      if (volume === 'god') {
+        // 400% volume via Web Audio API GainNode (bypasses 1.0 HTMLAudio cap)
+        const ctx = getAudioCtx();
+        ctx.resume().then(() => {
+          fetch('/flashbang-SoundEffectPro.mp3')
+            .then(r => r.arrayBuffer())
+            .then(ab => ctx.decodeAudioData(ab))
+            .then(decoded => {
+              const src = ctx.createBufferSource();
+              src.buffer = decoded;
+              const gain = ctx.createGain();
+              gain.gain.value = 4.0;
+              src.connect(gain);
+              gain.connect(ctx.destination);
+              src.start(ctx.currentTime, 1.7);
+              setTimeout(() => { try { src.stop(); } catch(e) {} }, (decoded.duration - 1.7 - 3.5) * 1000);
+            }).catch(() => {});
+        });
+      } else {
+        const snd = new Audio('/flashbang-SoundEffectPro.mp3');
+        snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
+        snd.currentTime = 1.7;
+        snd.addEventListener('loadedmetadata', () => {
+          setTimeout(() => snd.pause(), (snd.duration - snd.currentTime - 3.5) * 1000);
+        });
+        snd.play().catch(() => {});
+      }
 
     });
 
@@ -1914,7 +1967,7 @@
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
@@ -1995,8 +2048,8 @@
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
       socket.emit('admin_kick', parts.slice(1).join(' '));
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
@@ -2030,7 +2083,7 @@
       adminLog('/mute (name)                        — name-based mute', 'alog-warn');
       adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                     — remove VC ban', 'alog-warn');
@@ -2045,8 +2098,8 @@
       const secs = parts[parts.length - 1];
       socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
