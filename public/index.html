@@ -1770,7 +1770,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn /vcban /vcunban', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -1889,6 +1889,8 @@
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
+      adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
+      adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1974,6 +1976,14 @@
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/vcban') {
+      if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const targetName = parts.slice(1, -1).join(' ');
+      socket.emit('admin_vcban', { targetName, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+    } else if (cmd === '/vcunban') {
+      if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
+      socket.emit('admin_vcunban', parts.slice(1).join(' '));
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -1995,6 +2005,8 @@
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
+      adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
+      adminLog('/vcunban (name)                     — remove VC ban', 'alog-warn');
     } else if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
@@ -2014,8 +2026,16 @@
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/vcban') {
+      if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const targetName = parts.slice(1, -1).join(' ');
+      socket.emit('admin_vcban', { targetName, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+    } else if (cmd === '/vcunban') {
+      if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
+      socket.emit('admin_vcunban', parts.slice(1).join(' '));
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn /vcban /vcunban', 'alog-err');
     }
   });
 
