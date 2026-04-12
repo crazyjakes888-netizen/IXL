@@ -1094,8 +1094,8 @@
 
   // ---- Auto-clicker detection ----
   const clickTimes = [];
-  const interClickGaps = [];   // ms between consecutive clicks
-  const cpsHistory = [];       // CPS reading each second (last 30s)
+  const interClickGaps = [];   // ms between consecutive clicks (kept for admin reporting only)
+  const cpsHistory = [];       // per-second CPS readings (last 60s)
   let lastClickTime = 0;
 
   let acFlagged = false;
@@ -1108,9 +1108,6 @@
   let acLastCpsWasZero = true;
   let acOnOffCount = 0;
   let acOnOffResetTimer = null;
-
-  // Sustained consistent-CPS state
-  let acSustainedMidSecs = 0;
 
   function acStdDev(arr) {
     if (arr.length < 2) return 999;
@@ -1171,32 +1168,21 @@
     while (clickTimes.length && now - clickTimes[0] > 3000) clickTimes.shift();
     const cps = clickTimes.length / 3;
 
-    // Record CPS history (last 30 readings)
+    // Record CPS history (last 60 readings = 60 seconds)
     cpsHistory.push(cps);
-    if (cpsHistory.length > 30) cpsHistory.shift();
+    if (cpsHistory.length > 60) cpsHistory.shift();
 
-    // --- 1. Raw high CPS ---
-    if (cps >= 35) {
+    // --- 1. Physically impossible sustained rate (raised to 40 CPS / 5s) ---
+    // 35 CPS was too easy to hit briefly with a fast trackpad.
+    // 40 CPS for 5 continuous seconds is genuinely beyond human capability.
+    if (cps >= 40) {
       acHighCpsSeconds++;
-      if (acHighCpsSeconds >= 4) { lockCookieBtn('sustained high CPS'); return; }
+      if (acHighCpsSeconds >= 5) { lockCookieBtn('impossible sustained CPS'); return; }
     } else {
       acHighCpsSeconds = 0;
     }
 
-    // --- 2. Inter-click interval consistency ---
-    // Only flag extremely uniform rapid clicking (CV < 0.10 = less than 10% variation)
-    // Raised from 0.20 so trackpad/fast human clicking isn't falsely flagged
-    if (interClickGaps.length >= 20) {
-      const mean = acMean(interClickGaps);
-      const sd   = acStdDev(interClickGaps);
-      const cv   = sd / mean;
-      if (mean < 80 && cv < 0.10) {
-        lockCookieBtn('mechanical interval pattern (CV=' + cv.toFixed(2) + ')');
-        return;
-      }
-    }
-
-    // --- 3. On/off cycling ---
+    // --- 2. On/off cycling ---
     if (cps === 0 && !acLastCpsWasZero) {
       acLastCpsWasZero = true;
     } else if (cps >= 10 && acLastCpsWasZero) {
@@ -1208,27 +1194,30 @@
       if (acOnOffCount >= 8) { lockCookieBtn('on/off cycling (' + acOnOffCount + 'x in 60s)'); return; }
     }
 
-    // --- 4. Sustained mid-range CPS with very low variance ---
-    if (cps >= 10 && cps < 35) {
-      acSustainedMidSecs++;
-      if (acSustainedMidSecs >= 30 && cpsHistory.length >= 20) {
-        const recent = cpsHistory.slice(-20);
-        const mean = acMean(recent);
-        const cv   = acStdDev(recent) / (mean || 1);
-        if (mean >= 10 && cv < 0.20) {
-          lockCookieBtn('sustained consistent CPS (mean=' + mean.toFixed(1) + ' cv=' + cv.toFixed(2) + ')');
-          return;
-        }
+    // --- 3. Sustained stable CPS over 45 seconds (catches jittered autoclickers) ---
+    //
+    // KEY INSIGHT: even heavy random jitter barely affects per-SECOND CPS.
+    // e.g. a 20 CPS bot with ±40ms jitter on a 50ms base still produces
+    // ~19-21 clicks/sec every second → CV ≈ 0.03.
+    // A real human's click rate swings wildly second-to-second → CV typically 0.35+.
+    //
+    // The old per-interval CV check was bypassed simply by adding jitter.
+    // This check is NOT: it looks at the macro stability, which jitter can't hide.
+    if (cpsHistory.length >= 45) {
+      const recent = cpsHistory.slice(-45);
+      const mean = acMean(recent);
+      const cv   = acStdDev(recent) / (mean || 1);
+      if (mean >= 8 && cv < 0.18) {
+        lockCookieBtn('stable CPS over 45s (mean=' + mean.toFixed(1) + ' cv=' + cv.toFixed(2) + ')');
+        return;
       }
-    } else {
-      acSustainedMidSecs = 0;
     }
 
     // --- Admin reporting (flag when suspicious, un-flag when normal) ---
     if (cps >= 15 && !acFlagged) {
       acFlagged = true;
       acFlagStart = now;
-      const reason = interClickGaps.length >= 15
+      const reason = interClickGaps.length >= 10
         ? 'cv=' + (acStdDev(interClickGaps) / acMean(interClickGaps)).toFixed(2)
         : '';
       if (socket && myName) socket.emit('autoclicker_report', { cps: cps.toFixed(1), reason });
