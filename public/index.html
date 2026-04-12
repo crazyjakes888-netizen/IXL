@@ -382,31 +382,31 @@
 
     #upgrades {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
       width: 100%;
     }
 
     .upgrade-btn {
       background: #1e1e1e;
       border: 1px solid #333;
-      border-radius: 8px;
-      padding: 8px 10px 6px;
+      border-radius: 6px;
+      padding: 5px 7px 4px;
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
     }
     .upgrade-btn.disabled { opacity: 0.4; }
 
-    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.8rem; }
-    .upgrade-btn .upg-desc { font-size: 0.7rem; color: #aaaaaa; margin-top: 2px; }
-    .upgrade-btn .upg-cost { font-size: 0.75rem; color: #ffffff; margin-top: 3px; }
-    .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; margin-bottom: 5px; }
+    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.72rem; }
+    .upgrade-btn .upg-desc { font-size: 0.63rem; color: #aaaaaa; margin-top: 1px; }
+    .upgrade-btn .upg-cost { font-size: 0.68rem; color: #ffffff; margin-top: 2px; }
+    .upgrade-btn .upg-owned { font-size: 0.6rem; color: #aaaaaa; margin-bottom: 3px; }
 
-    .upg-actions { display: flex; gap: 5px; margin-top: 4px; }
+    .upg-actions { display: flex; gap: 3px; margin-top: 3px; }
     .upg-buy-btn, .upg-sell-btn {
-      flex: 1; padding: 4px 0; border-radius: 5px;
-      font-size: 0.72rem; font-weight: bold; cursor: pointer; border: none;
+      flex: 1; padding: 3px 0; border-radius: 4px;
+      font-size: 0.65rem; font-weight: bold; cursor: pointer; border: none;
     }
     .upg-buy-btn  { background: #1a5c1a; color: #aaffaa; }
     .upg-buy-btn:hover:not(:disabled)  { background: #246e24; }
@@ -422,22 +422,22 @@
     }
     #powerups {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px; width: 100%;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px; width: 100%;
     }
     .powerup-btn {
       background: #1a1a10;
       border: 1px solid #554422;
-      border-radius: 8px; padding: 8px 10px;
+      border-radius: 6px; padding: 5px 7px;
       cursor: pointer; color: #e0e0e0; text-align: left;
       transition: border-color 0.2s, background 0.2s;
     }
     .powerup-btn:hover:not(:disabled) { border-color: #ffcc44; background: #2a2a10; }
     .powerup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .powerup-btn .pu-name { font-weight: bold; font-size: 0.8rem; color: #ffdd88; }
-    .powerup-btn .pu-desc { font-size: 0.68rem; color: #ccaa66; margin-top: 2px; }
-    .powerup-btn .pu-cost { font-size: 0.72rem; color: #fff; margin-top: 3px; }
-    .powerup-btn .pu-timer { font-size: 0.68rem; color: #ffcc44; margin-top: 2px; font-weight: bold; min-height: 14px; }
+    .powerup-btn .pu-name { font-weight: bold; font-size: 0.72rem; color: #ffdd88; }
+    .powerup-btn .pu-desc { font-size: 0.61rem; color: #ccaa66; margin-top: 1px; }
+    .powerup-btn .pu-cost { font-size: 0.65rem; color: #fff; margin-top: 2px; }
+    .powerup-btn .pu-timer { font-size: 0.61rem; color: #ffcc44; margin-top: 1px; font-weight: bold; min-height: 12px; }
 
     /* Pay modal */
     #pay-modal-overlay {
@@ -642,8 +642,9 @@
     /* Chromebook / small laptop (900–1200px) */
     @media (max-width: 1100px) {
       #right-panel { width: 230px; min-width: 230px; }
-      #upgrades { grid-template-columns: repeat(2, 1fr); }
-      #attacks  { grid-template-columns: repeat(2, 1fr); }
+      #upgrades { grid-template-columns: repeat(3, 1fr); }
+      #powerups { grid-template-columns: repeat(3, 1fr); }
+      #attacks  { grid-template-columns: repeat(3, 1fr); }
     }
 
     /* Tablet / iPad (600–900px) */
@@ -673,6 +674,7 @@
       #leaderboard { display: none; }
       #chat-section { flex: 1; min-width: 0; }
       #upgrades { grid-template-columns: repeat(2, 1fr); }
+      #powerups { grid-template-columns: repeat(2, 1fr); }
       #attacks  { grid-template-columns: repeat(2, 1fr); }
       #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
       #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
