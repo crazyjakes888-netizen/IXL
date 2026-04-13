@@ -85,7 +85,9 @@ function normalize(str, parenAs = 'i') {
 }
 
 function isBad(norm) {
-  return BAD_WORDS.some(bad => norm === bad || norm.includes(bad));
+  // Exact match only — substring (.includes) causes false positives
+  // e.g. "class" contains "ass", "assassin" contains "ass", etc.
+  return BAD_WORDS.some(bad => norm === bad);
 }
 
 function filterMsg(text) {
@@ -97,14 +99,26 @@ function filterMsg(text) {
   });
 }
 
+let vcFilterEnabled = true; // toggled by /vcfilter on|off
+
+function broadcastVcList() {
+  const list = [];
+  vcMembers.forEach(id => {
+    const name = players[id] && players[id].name;
+    if (name) list.push({ id, name });
+  });
+  vcMembers.forEach(id => io.to(id).emit('vc_member_list', list));
+}
+
 function doVcBan(socket, name) {
   const lower = name.toLowerCase();
   if (vcBans[lower] && vcBans[lower] > Date.now()) return; // already banned
-  vcBans[lower] = Date.now() + 60 * 60 * 1000; // 1 hour
+  vcBans[lower] = Date.now() + 30 * 60 * 1000; // 30 minutes
   vcMembers.delete(socket.id);
   vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
-  socket.emit('vc_banned', 3600);
-  io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 1 hour (bad language).`, time: Date.now() });
+  broadcastVcList();
+  socket.emit('vc_banned', 1800);
+  io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 30 minutes (bad language).`, time: Date.now() });
 }
 
 io.on('connection', (socket) => {
@@ -672,26 +686,29 @@ io.on('connection', (socket) => {
   socket.on('vc_ice',    ({ to, candidate }) => { io.to(to).emit('vc_ice',    { from: socket.id, candidate }); });
 
   socket.on('vc_speech', (text) => {
+    if (!vcFilterEnabled) return;
     const name = players[socket.id] && players[socket.id].name;
     if (!name) return;
     const raw = String(text).slice(0, 300);
-    // Chrome's Web Speech API auto-censors profanity with asterisks (e.g. "f***", "****")
-    // Detect censored words in addition to plaintext bad words
     const hasCensored = raw.split(/\s+/).some(w =>
-      /\*{2,}/.test(w) ||           // "****" or "f***"
-      /[a-z]\*+[a-z]/i.test(w)      // "sh*t", "f**k"
+      /\*{2,}/.test(w) || /[a-z]\*+[a-z]/i.test(w)
     );
-    if (hasCensored || isBad(normalize(raw))) {
-      doVcBan(socket, name);
-    }
+    if (hasCensored || isBad(normalize(raw))) doVcBan(socket, name);
   });
 
-  // Client-side detection path: fires when the client catches a bad word in
-  // interim transcript (before Chrome's profanity filter can censor/drop it)
+  // Client-side detection path: interim transcript caught bad word before Chrome filtered it
   socket.on('vc_bad_word', () => {
+    if (!vcFilterEnabled) return;
     const name = players[socket.id] && players[socket.id].name;
     if (!name) return;
     doVcBan(socket, name);
+  });
+
+  socket.on('admin_vcfilter', (state) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    vcFilterEnabled = (state === 'on');
+    const label = vcFilterEnabled ? '🟢 ON' : '🔴 OFF';
+    socket.emit('admin_action_result', { ok: true, msg: `VC bad-word filter is now ${label}` });
   });
 
   socket.on('disconnect', () => {

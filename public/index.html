@@ -1817,7 +1817,9 @@
       // we catch the word before Chrome can replace it with **** or drop it.
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SR) {
-        const VC_BAD = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys','ass','damn','crap'];
+        // Use \b word boundaries so "class" doesn't match "ass", "bass" etc.
+        const VC_BAD = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys'];
+        const vcBadRe = new RegExp('\\b(' + VC_BAD.join('|') + ')\\b', 'i');
         vcRecognition = new SR();
         vcRecognition.continuous = true;
         vcRecognition.interimResults = true; // get raw words before Chrome's filter runs
@@ -1825,13 +1827,12 @@
         vcRecognition.onresult = (ev) => {
           for (let i = ev.resultIndex; i < ev.results.length; i++) {
             const raw = ev.results[i][0].transcript;
-            const lower = raw.toLowerCase().replace(/[^a-z\s\*]/g, ' ');
-            // Check for explicit bad words (works on interim results before filtering)
-            const hasBad = VC_BAD.some(w => lower.split(/\s+/).some(tok => tok === w || tok.includes(w)));
-            // Check for censored patterns in final results (f***, ****)
+            // Check for explicit bad words using whole-word boundaries
+            const hasBad = vcBadRe.test(raw);
+            // Check for censored patterns (f***, ****)
             const hasCensored = raw.split(/\s+/).some(w => /\*{2,}/.test(w) || /[a-z]\*+[a-z]/i.test(w));
             if (hasBad || hasCensored) {
-              socket.emit('vc_bad_word'); // dedicated ban event — bypasses transcript filtering
+              socket.emit('vc_bad_word');
               return;
             }
             // Send final clean transcripts to server as a secondary check
@@ -2063,6 +2064,7 @@
       adminLog('/fah (name)                    — blast a FAH air-horn at a player', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
+      adminLog('/vcfilter on|off               — toggle auto bad-word VC ban', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -2164,6 +2166,9 @@
     } else if (cmd === '/vcunban') {
       if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
       socket.emit('admin_vcunban', parts.slice(1).join(' '));
+    } else if (cmd === '/vcfilter') {
+      if (!['on','off'].includes(parts[1])) { adminLog('Usage: /vcfilter on|off', 'alog-err'); return; }
+      socket.emit('admin_vcfilter', parts[1]);
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
