@@ -1941,7 +1941,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -2224,7 +2224,7 @@
       if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
       socket.emit('admin_vcunban', parts.slice(1).join(' '));
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-err');
     }
   });
 
