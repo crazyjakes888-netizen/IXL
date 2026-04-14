@@ -5,10 +5,13 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+const compression = require('compression');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+app.use(compression());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
@@ -16,9 +19,11 @@ app.use(express.json());
 app.post('/save', (req, res) => {
   const { username, cookies, owned } = req.body || {};
   if (username && accounts[username]) {
-    accounts[username].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+    const incoming = Math.max(0, Math.floor(Number(cookies) || 0));
+    // Use max so a stale beacon can never overwrite a higher value saved by disconnect handler
+    accounts[username].cookies = Math.max(accounts[username].cookies || 0, incoming);
     if (owned) accounts[username].owned = owned;
-    saveAccounts();
+    saveAccounts(true); // immediate — beacon fires on page close
   }
   res.sendStatus(200);
 });
@@ -45,12 +50,63 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 let accounts = {};
 try { accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8')); } catch(e) {}
-function saveAccounts() {
-  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts));
+let _saveAccountsTimer = null;
+function saveAccounts(immediate = false) {
+  if (immediate) {
+    if (_saveAccountsTimer) { clearTimeout(_saveAccountsTimer); _saveAccountsTimer = null; }
+    fs.writeFile(ACCOUNTS_FILE, JSON.stringify(accounts), () => {});
+    return;
+  }
+  if (!_saveAccountsTimer) {
+    _saveAccountsTimer = setTimeout(() => {
+      _saveAccountsTimer = null;
+      fs.writeFile(ACCOUNTS_FILE, JSON.stringify(accounts), () => {});
+    }, 5000);
+  }
 }
 function hashPw(pw) {
   return crypto.createHash('sha256').update(String(pw)).digest('hex');
 }
+
+// ---- Player join log (never wiped by daily reset) ----
+const JOINLOG_FILE = path.join(DATA_DIR, 'joinlog.json');
+let joinLog = {};  // username -> { firstSeen, lastSeen, joinCount }
+try { joinLog = JSON.parse(fs.readFileSync(JOINLOG_FILE, 'utf8')); } catch(e) {}
+let _saveJoinLogTimer = null;
+function saveJoinLog() {
+  if (!_saveJoinLogTimer) {
+    _saveJoinLogTimer = setTimeout(() => {
+      _saveJoinLogTimer = null;
+      fs.writeFile(JOINLOG_FILE, JSON.stringify(joinLog), () => {});
+    }, 10000);
+  }
+}
+
+function recordJoin(name) {
+  const now = Date.now();
+  if (!joinLog[name]) {
+    joinLog[name] = { firstSeen: now, lastSeen: now, joinCount: 1 };
+  } else {
+    joinLog[name].lastSeen = now;
+    joinLog[name].joinCount = (joinLog[name].joinCount || 0) + 1;
+  }
+  saveJoinLog();
+}
+
+// ---- Reports ----
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+let reports = [];
+try { reports = JSON.parse(fs.readFileSync(REPORTS_FILE, 'utf8')); } catch(e) {}
+let _saveReportsTimer = null;
+function saveReports() {
+  if (!_saveReportsTimer) {
+    _saveReportsTimer = setTimeout(() => {
+      _saveReportsTimer = null;
+      fs.writeFile(REPORTS_FILE, JSON.stringify(reports), () => {});
+    }, 3000);
+  }
+}
+const reportTokens = {}; // token -> expiry timestamp
 
 function getIP(socket) {
   return socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address;
@@ -599,7 +655,7 @@ io.on('connection', (socket) => {
       // Persist latest cookie count on disconnect (save_progress fires every 1s so this is a safety net)
       if (accounts[name] && players[socket.id].cookies > 0) {
         accounts[name].cookies = players[socket.id].cookies;
-        saveAccounts();
+        saveAccounts(true); // immediate on disconnect
       }
       recentlyLeft[name] = Date.now();
       if (recentlyLeftTimers[name]) clearTimeout(recentlyLeftTimers[name]);
@@ -618,9 +674,15 @@ io.on('connection', (socket) => {
   });
 });
 
-// Push leaderboard to all clients every 2 seconds
+// Push leaderboard to all clients every 2 seconds — only when data actually changed
+let _lastLeaderboardJSON = '';
 setInterval(() => {
-  io.emit('leaderboard', getLeaderboard());
+  const lb = getLeaderboard();
+  const json = JSON.stringify(lb);
+  if (json !== _lastLeaderboardJSON) {
+    _lastLeaderboardJSON = json;
+    io.emit('leaderboard', lb);
+  }
 }, 2000);
 
 function getPlayerList() {

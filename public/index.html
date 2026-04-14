@@ -1319,8 +1319,8 @@
     if (socket) socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
   }
 
-  // Save every second
-  setInterval(saveProgress, 1000);
+  // Save every 5 seconds
+  setInterval(saveProgress, 5000);
   // Save when tab closes
   window.addEventListener('beforeunload', () => {
     if (!myName) return;
