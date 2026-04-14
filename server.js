@@ -25,6 +25,35 @@ app.post('/save', (req, res) => {
   res.sendStatus(200);
 });
 
+// ---- Reports API (token-gated) ----
+app.get('/api/reports', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  res.json([...reports].reverse()); // newest first
+});
+
+app.delete('/api/reports/:id', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const id = Number(req.params.id);
+  const idx = reports.findIndex(r => r.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  reports.splice(idx, 1);
+  saveReports();
+  res.json({ ok: true });
+});
+
+app.patch('/api/reports/:id/read', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const id = Number(req.params.id);
+  const r = reports.find(r => r.id === id);
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  r.read = !r.read;
+  saveReports();
+  res.json({ ok: true, read: r.read });
+});
+
 const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
@@ -55,6 +84,13 @@ function saveAccounts() {
 function hashPw(pw) {
   return crypto.createHash('sha256').update(String(pw)).digest('hex');
 }
+
+// ---- Reports ----
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+let reports = [];
+try { reports = JSON.parse(fs.readFileSync(REPORTS_FILE, 'utf8')); } catch(e) {}
+function saveReports() { fs.writeFileSync(REPORTS_FILE, JSON.stringify(reports)); }
+const reportTokens = {}; // token -> expiry timestamp
 
 function getIP(socket) {
   return socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address;
@@ -709,6 +745,28 @@ io.on('connection', (socket) => {
     vcFilterEnabled = (state === 'on');
     const label = vcFilterEnabled ? '🟢 ON' : '🔴 OFF';
     socket.emit('admin_action_result', { ok: true, msg: `VC bad-word filter is now ${label}` });
+  });
+
+  // ---- Reports ----
+  socket.on('submit_report', ({ type, target, text }) => {
+    const player = players[socket.id];
+    const from = (player && player.name) || socket._authedName || 'Anonymous';
+    const validTypes = ['player', 'bug', 'suggestion'];
+    if (!validTypes.includes(type)) return;
+    const safeText = String(text || '').slice(0, 1000).replace(/[<>&"]/g, '');
+    const safeTarget = type === 'player' ? String(target || '').slice(0, 50).replace(/[<>&"]/g, '') : '';
+    if (!safeText.trim()) { socket.emit('report_result', { ok: false, msg: 'Please enter a description.' }); return; }
+    reports.push({ id: Date.now(), type, from, target: safeTarget, text: safeText, time: Date.now(), read: false });
+    saveReports();
+    socket.emit('report_result', { ok: true });
+    admins.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
+  });
+
+  socket.on('admin_get_reports_token', () => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const tok = crypto.randomBytes(16).toString('hex');
+    reportTokens[tok] = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+    socket.emit('admin_reports_token', tok);
   });
 
   socket.on('disconnect', () => {

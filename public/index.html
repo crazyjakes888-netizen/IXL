@@ -69,6 +69,51 @@
     #vc-btn.vc-active { background: #1a5c1a; border-color: #3a9a3a; }
     #vc-btn.vc-active:hover { background: #1f6e1f; }
     #vc-btn.vc-banned { background: #5c1a1a; border-color: #9a3a3a; color: #ff9999; cursor: not-allowed; font-size: 0.72rem; }
+    #report-btn { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem; }
+    #report-btn:hover { background: #444; }
+
+    /* Report Modal */
+    #report-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000000bb; z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #report-modal-overlay.open { display: flex; }
+    #report-modal {
+      background: #1a1a1a; border: 1px solid #444;
+      border-radius: 10px; width: 420px; max-width: 95vw;
+      overflow: hidden;
+    }
+    #report-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid #333;
+      font-weight: bold; font-size: 1rem; color: #fff;
+    }
+    #report-modal-close { background: none; border: none; color: #aaa; font-size: 1.2rem; cursor: pointer; }
+    #report-modal-close:hover { color: #fff; }
+    #report-tabs { display: flex; border-bottom: 1px solid #333; }
+    .report-tab {
+      flex: 1; padding: 9px 6px; background: none; border: none;
+      color: #aaa; cursor: pointer; font-size: 0.82rem; border-bottom: 3px solid transparent;
+      transition: color 0.15s;
+    }
+    .report-tab:hover { color: #fff; }
+    .report-tab.active { color: #fff; border-bottom-color: #5588ff; }
+    #report-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .report-panel { display: none; flex-direction: column; gap: 10px; }
+    .report-panel.active { display: flex; }
+    .report-panel input, .report-panel textarea, .report-panel select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      background: #111; border: 1px solid #444; color: #e0e0e0; font-size: 0.85rem;
+      font-family: inherit; resize: vertical;
+    }
+    .report-panel textarea { min-height: 90px; }
+    .report-submit-btn {
+      background: #5588ff; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 0; font-size: 0.9rem; cursor: pointer; width: 100%;
+    }
+    .report-submit-btn:hover { background: #4477ee; }
+    #report-result { font-size: 0.85rem; min-height: 18px; text-align: center; }
 
     #lb-modal-overlay {
       display: none;
@@ -671,6 +716,7 @@
   <div id="left-btns">
     <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
     <button id="vc-btn" title="Voice Chat">🎤 VC</button>
+    <button id="report-btn" title="Reports">📋 Report</button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
@@ -701,6 +747,37 @@
     </div>
     <div id="lb-modal-body">
       <ul id="lb-modal-list"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div id="report-modal-overlay">
+  <div id="report-modal">
+    <div id="report-modal-header">
+      📋 Submit a Report
+      <button id="report-modal-close">✕</button>
+    </div>
+    <div id="report-tabs">
+      <button class="report-tab active" data-tab="player">🚨 Report Player</button>
+      <button class="report-tab" data-tab="bug">🐛 Report Bug</button>
+      <button class="report-tab" data-tab="suggestion">💡 Suggestion</button>
+    </div>
+    <div id="report-modal-body">
+      <div class="report-panel active" id="rpanel-player">
+        <input id="report-player-target" type="text" placeholder="Player's name..." maxlength="50" />
+        <textarea id="report-player-text" placeholder="Describe what happened..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-player-submit">Submit Report</button>
+      </div>
+      <div class="report-panel" id="rpanel-bug">
+        <textarea id="report-bug-text" placeholder="Describe the bug..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-bug-submit">Submit Report</button>
+      </div>
+      <div class="report-panel" id="rpanel-suggestion">
+        <textarea id="report-suggestion-text" placeholder="Your suggestion..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-suggestion-submit">Submit Report</button>
+      </div>
+      <div id="report-result"></div>
     </div>
   </div>
 </div>
@@ -1870,6 +1947,13 @@
     });
 
     socket.on('admin_playerlist', () => {});
+
+    // Reports
+    if (window._reportResultHandler) window._reportResultHandler(socket);
+    socket.on('admin_reports_token', (tok) => {
+      window.open('/reports-viewer.html?token=' + encodeURIComponent(tok), '_blank');
+      adminLog('✅ Reports page opened in new tab.', 'alog-ok');
+    });
   }
 
 
@@ -1972,6 +2056,7 @@
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
       adminLog('/vcfilter on|off               — toggle auto bad-word VC ban', 'alog-warn');
+      adminLog('/reports                       — open reports viewer in new tab', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -2076,6 +2161,8 @@
     } else if (cmd === '/vcfilter') {
       if (!['on','off'].includes(parts[1])) { adminLog('Usage: /vcfilter on|off', 'alog-err'); return; }
       socket.emit('admin_vcfilter', parts[1]);
+    } else if (cmd === '/reports') {
+      socket.emit('admin_get_reports_token');
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -2230,6 +2317,62 @@
     updateDisplay(); updateButtons();
     socket.emit('pay_player', { targetName, amount });
   });
+
+  // ---- Report Modal ----
+  (function() {
+    const overlay = document.getElementById('report-modal-overlay');
+    const closeBtn = document.getElementById('report-modal-close');
+    const resultEl = document.getElementById('report-result');
+    let activeTab = 'player';
+
+    document.getElementById('report-btn').addEventListener('click', () => {
+      overlay.classList.add('open');
+      resultEl.textContent = '';
+    });
+    closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    document.querySelectorAll('.report-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        document.querySelectorAll('.report-tab').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.report-panel').forEach(p => p.classList.toggle('active', p.id === 'rpanel-' + activeTab));
+        resultEl.textContent = '';
+      });
+    });
+
+    function submitReport(type, target, textId) {
+      if (!socket) { showResult('Not connected.', false); return; }
+      const text = document.getElementById(textId).value.trim();
+      if (!text) { showResult('Please enter a description.', false); return; }
+      if (type === 'player') {
+        const t = document.getElementById('report-player-target').value.trim();
+        if (!t) { showResult('Enter the player\'s name.', false); return; }
+        socket.emit('submit_report', { type, target: t, text });
+      } else {
+        socket.emit('submit_report', { type, target: '', text });
+      }
+      document.getElementById(textId).value = '';
+      if (type === 'player') document.getElementById('report-player-target').value = '';
+    }
+
+    function showResult(msg, ok) {
+      resultEl.style.color = ok ? '#55ee88' : '#ff5555';
+      resultEl.textContent = msg;
+    }
+
+    document.getElementById('report-player-submit').addEventListener('click', () => submitReport('player', '', 'report-player-text'));
+    document.getElementById('report-bug-submit').addEventListener('click', () => submitReport('bug', '', 'report-bug-text'));
+    document.getElementById('report-suggestion-submit').addEventListener('click', () => submitReport('suggestion', '', 'report-suggestion-text'));
+
+    // Listen for server response
+    window._reportResultHandler = function(sock) {
+      sock.on('report_result', ({ ok, msg }) => {
+        showResult(ok ? '✅ Report submitted! Thank you.' : (msg || 'Error submitting report.'), ok);
+        if (ok) setTimeout(() => overlay.classList.remove('open'), 1800);
+      });
+    };
+  })();
 
   // ---- Init (before login) ----
   buildUpgrades();
