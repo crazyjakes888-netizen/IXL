@@ -1449,8 +1449,9 @@
       lb.forEach((p, i) => {
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
+        const dot = (!p.online || p.afk) ? '<span style="color:#888" title="Offline/AFK">●</span> ' : '<span style="color:#4f4" title="Online">●</span> ';
         li.innerHTML = `
-          <span class="lb-name">${i + 1}. ${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;" title="AFK">💤 AFK</span>' : ''}</span>
+          <span class="lb-name">${i + 1}. ${dot}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;">💤</span>' : ''}</span>
           <span class="lb-score">${formatNum(p.cookies)}</span>
         `;
         list.appendChild(li);
@@ -1482,7 +1483,7 @@
         const li = document.createElement('li');
         li.innerHTML = `
           <span class="lbm-rank">${i + 1}.</span>
-          <span class="lbm-name${p.name === myName ? ' me' : ''}">${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;" title="AFK">💤 AFK</span>' : ''}</span>
+          <span class="lbm-name${p.name === myName ? ' me' : ''}">${(!p.online || p.afk) ? '<span style="color:#888" title="Offline/AFK">●</span> ' : '<span style="color:#4f4" title="Online">●</span> '}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;">💤</span>' : ''}</span>
           <span class="lbm-score">${formatNum(p.cookies)}</span>
         `;
         ul.appendChild(li);
