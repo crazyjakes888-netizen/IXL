@@ -357,17 +357,21 @@
     }
     #join-box input:-webkit-autofill,
     #join-box input:-webkit-autofill:hover,
-    #join-box input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0px 1000px #2a2a2a inset;
-      -webkit-text-fill-color: #e0e0e0;
+    #join-box input:-webkit-autofill:focus,
+    #join-box input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0px 1000px #2a2a2a inset !important;
+      -webkit-text-fill-color: #e0e0e0 !important;
       caret-color: #e0e0e0;
+      transition: background-color 86400s ease-in-out 0s;
     }
     body.light #join-box input:-webkit-autofill,
     body.light #join-box input:-webkit-autofill:hover,
-    body.light #join-box input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0px 1000px #f5f5f5 inset;
-      -webkit-text-fill-color: #111;
+    body.light #join-box input:-webkit-autofill:focus,
+    body.light #join-box input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0px 1000px #f5f5f5 inset !important;
+      -webkit-text-fill-color: #111 !important;
       caret-color: #111;
+      transition: background-color 86400s ease-in-out 0s;
     }
 
     #join-box button {
