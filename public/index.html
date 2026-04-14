@@ -69,6 +69,71 @@
     #vc-btn.vc-active { background: #1a5c1a; border-color: #3a9a3a; }
     #vc-btn.vc-active:hover { background: #1f6e1f; }
     #vc-btn.vc-banned { background: #5c1a1a; border-color: #9a3a3a; color: #ff9999; cursor: not-allowed; font-size: 0.72rem; }
+    #report-btn { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem; }
+    #report-btn:hover { background: #444; }
+    #theme-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #111; border: 2px solid #888;
+      cursor: pointer; padding: 0; flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #theme-btn:hover { border-color: #bbb; }
+    body.light #theme-btn { background: #fff; border-color: #888; }
+
+    /* Report Modal */
+    #report-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000000bb; z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #report-modal-overlay.open { display: flex; }
+    #report-modal {
+      background: #1a1a1a; border: 1px solid #444;
+      border-radius: 10px; width: 420px; max-width: 95vw;
+      overflow: hidden;
+    }
+    #report-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid #333;
+      font-weight: bold; font-size: 1rem; color: #fff;
+    }
+    #report-modal-close { background: none; border: none; color: #aaa; font-size: 1.2rem; cursor: pointer; }
+    #report-modal-close:hover { color: #fff; }
+    #report-tabs { display: flex; border-bottom: 1px solid #333; }
+    .report-tab {
+      flex: 1; padding: 9px 6px; background: none; border: none;
+      color: #aaa; cursor: pointer; font-size: 0.82rem; border-bottom: 3px solid transparent;
+      transition: color 0.15s;
+    }
+    .report-tab:hover { color: #fff; }
+    .report-tab.active { color: #fff; border-bottom-color: #5588ff; }
+    #report-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .report-panel { display: none; flex-direction: column; gap: 10px; }
+    .report-panel.active { display: flex; }
+    .report-panel input, .report-panel textarea, .report-panel select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      background: #111; border: 1px solid #444; color: #e0e0e0; font-size: 0.85rem;
+      font-family: inherit; resize: vertical;
+    }
+    .report-panel textarea { min-height: 90px; }
+    .report-submit-btn {
+      background: #5588ff; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 0; font-size: 0.9rem; cursor: pointer; width: 100%;
+    }
+    .report-submit-btn:hover { background: #4477ee; }
+    #report-result { font-size: 0.85rem; min-height: 18px; text-align: center; }
+    .rp-search-wrap { position: relative; width: 100%; }
+    .rp-dropdown {
+      display: none; position: absolute; left: 0; right: 0; top: calc(100% + 2px);
+      background: #1a1a1a; border: 1px solid #555; border-radius: 6px;
+      max-height: 180px; overflow-y: auto; z-index: 9999;
+    }
+    .rp-dropdown.open { display: block; }
+    .rp-option {
+      padding: 7px 12px; cursor: pointer; font-size: 0.85rem; color: #e0e0e0;
+    }
+    .rp-option:hover, .rp-option.focused { background: #2a3a5a; color: #fff; }
+    .rp-option.no-match { color: #666; cursor: default; pointer-events: none; }
 
     #lb-modal-overlay {
       display: none;
@@ -290,6 +355,24 @@
       margin-bottom: 14px;
       outline: none;
     }
+    #join-box input:-webkit-autofill,
+    #join-box input:-webkit-autofill:hover,
+    #join-box input:-webkit-autofill:focus,
+    #join-box input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0px 1000px #2a2a2a inset !important;
+      -webkit-text-fill-color: #e0e0e0 !important;
+      caret-color: #e0e0e0;
+      transition: background-color 86400s ease-in-out 0s;
+    }
+    body.light #join-box input:-webkit-autofill,
+    body.light #join-box input:-webkit-autofill:hover,
+    body.light #join-box input:-webkit-autofill:focus,
+    body.light #join-box input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0px 1000px #f5f5f5 inset !important;
+      -webkit-text-fill-color: #111 !important;
+      caret-color: #111;
+      transition: background-color 86400s ease-in-out 0s;
+    }
 
     #join-box button {
       width: 100%;
@@ -315,14 +398,35 @@
       overflow: hidden;
     }
 
+    /* Ensure left-btns are always on top of header text */
+    #left-btns { z-index: 10; }
+
     /* === GAME PANEL === */
     #game-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Cookie button area — never scrolls away */
+    #cookie-area {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 10px 16px;
+      padding: 10px 16px 6px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Everything below the cookie button scrolls */
+    #upgrades-scroll {
+      flex: 1;
       overflow-y: auto;
+      padding: 0 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       gap: 8px;
     }
 
@@ -343,6 +447,9 @@
       cursor: pointer;
       font-size: 3rem;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
       transition: transform 0.08s, box-shadow 0.08s;
       box-shadow: 0 0 20px #33333355;
     }
@@ -351,89 +458,49 @@
       transform: scale(0.93);
     }
 
-    #upgrades-title {
+    #upgrades-title, #click-upgrades-title {
       font-size: 0.8rem;
       color: #aaaaaa;
       text-transform: uppercase;
       letter-spacing: 1px;
       align-self: flex-start;
     }
+    #click-upgrades-title { margin-top: 4px; }
 
-    #upgrades {
+    #upgrades, #click-upgrades {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
       width: 100%;
     }
 
     .upgrade-btn {
       background: #1e1e1e;
       border: 1px solid #333;
-      border-radius: 8px;
-      padding: 8px 10px;
-      padding-right: 22px;
-      cursor: pointer;
+      border-radius: 6px;
+      padding: 5px 7px 4px;
       color: #e0e0e0;
       text-align: left;
       transition: border-color 0.2s, background 0.2s;
-      position: relative;
     }
+    .upgrade-btn.disabled { opacity: 0.4; }
 
-    .upgrade-btn:hover:not(.disabled) {
-      border-color: #666;
-      background: #2a2a2a;
-    }
+    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.72rem; }
+    .upgrade-btn .upg-desc { font-size: 0.63rem; color: #aaaaaa; margin-top: 1px; }
+    .upgrade-btn .upg-cost { font-size: 0.68rem; color: #ffffff; margin-top: 2px; }
+    .upgrade-btn .upg-owned { font-size: 0.6rem; color: #aaaaaa; margin-bottom: 3px; }
 
-    .upgrade-btn.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+    .upg-actions { display: flex; gap: 3px; margin-top: 3px; }
+    .upg-buy-btn, .upg-sell-btn {
+      flex: 1; padding: 3px 0; border-radius: 4px;
+      font-size: 0.65rem; font-weight: bold; cursor: pointer; border: none;
     }
-
-    .upgrade-btn .upg-name { font-weight: bold; font-size: 0.8rem; }
-    .upgrade-btn .upg-desc { font-size: 0.7rem; color: #aaaaaa; margin-top: 2px; }
-    .upgrade-btn .upg-cost { font-size: 0.75rem; color: #ffffff; margin-top: 3px; }
-    .upgrade-btn .upg-owned { font-size: 0.65rem; color: #aaaaaa; }
-
-    .upg-sell-btn {
-      position: absolute;
-      top: 3px; right: 3px;
-      background: #1a1010;
-      border: 1px solid #442222;
-      color: #995555;
-      border-radius: 3px;
-      width: 16px; height: 16px;
-      font-size: 0.6rem;
-      cursor: pointer;
-      padding: 0;
-      display: flex; align-items: center; justify-content: center;
-      line-height: 1;
-    }
-    .upg-sell-btn:hover:not(:disabled) { background: #aa2222; color: #fff; border-color: #ff4444; }
-    .upg-sell-btn:disabled { opacity: 0.25; cursor: not-allowed; }
-
-    /* Power-ups section */
-    #powerups-title {
-      font-size: 0.8rem; color: #ffcc44;
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    #powerups {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px; width: 100%;
-    }
-    .powerup-btn {
-      background: #1a1a10;
-      border: 1px solid #554422;
-      border-radius: 8px; padding: 8px 10px;
-      cursor: pointer; color: #e0e0e0; text-align: left;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .powerup-btn:hover:not(:disabled) { border-color: #ffcc44; background: #2a2a10; }
-    .powerup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .powerup-btn .pu-name { font-weight: bold; font-size: 0.8rem; color: #ffdd88; }
-    .powerup-btn .pu-desc { font-size: 0.68rem; color: #ccaa66; margin-top: 2px; }
-    .powerup-btn .pu-cost { font-size: 0.72rem; color: #fff; margin-top: 3px; }
-    .powerup-btn .pu-timer { font-size: 0.68rem; color: #ffcc44; margin-top: 2px; font-weight: bold; min-height: 14px; }
+    .upg-buy-btn  { background: #1a5c1a; color: #aaffaa; }
+    .upg-buy-btn:hover:not(:disabled)  { background: #246e24; }
+    .upg-buy-btn:disabled  { opacity: 0.3; cursor: not-allowed; }
+    .upg-sell-btn { background: #5c1a1a; color: #ffaaaa; }
+    .upg-sell-btn:hover:not(:disabled) { background: #7a2222; }
+    .upg-sell-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* Pay modal */
     #pay-modal-overlay {
@@ -638,8 +705,8 @@
     /* Chromebook / small laptop (900–1200px) */
     @media (max-width: 1100px) {
       #right-panel { width: 230px; min-width: 230px; }
-      #upgrades { grid-template-columns: repeat(2, 1fr); }
-      #attacks  { grid-template-columns: repeat(2, 1fr); }
+      #upgrades, #click-upgrades { grid-template-columns: repeat(3, 1fr); }
+      #attacks  { grid-template-columns: repeat(3, 1fr); }
     }
 
     /* Tablet / iPad (600–900px) */
@@ -658,7 +725,7 @@
       #lb-modal-btn, #vc-btn { font-size: 0.62rem; padding: 4px 5px; }
       #admin-btn    { right: 6px; font-size: 0.68rem; padding: 4px 6px; }
       #main { flex-direction: column; overflow-y: auto; }
-      #game-panel { overflow-y: visible; }
+      #upgrades-scroll { overflow-y: visible; }
       #right-panel {
         width: 100%; min-width: 0;
         border-left: none;
@@ -668,11 +735,75 @@
       }
       #leaderboard { display: none; }
       #chat-section { flex: 1; min-width: 0; }
-      #upgrades { grid-template-columns: repeat(2, 1fr); }
+      #upgrades, #click-upgrades { grid-template-columns: repeat(2, 1fr); }
       #attacks  { grid-template-columns: repeat(2, 1fr); }
       #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
       #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
     }
+
+    /* ===== LIGHT MODE ===== */
+    body.light { background: #f0f2f5; color: #111; }
+    body.light header { background: #fff; border-bottom-color: #ddd; color: #111; }
+    body.light #admin-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
+    body.light #admin-btn:hover { background: #d8d8d8; }
+    body.light #lb-modal-btn, body.light #vc-btn, body.light #report-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
+    body.light #lb-modal-btn:hover, body.light #vc-btn:hover:not(.vc-banned), body.light #report-btn:hover { background: #d8d8d8; }
+    body.light #join-screen { background: #f0f2f5dd; }
+    body.light #join-box { background: #fff; border-color: #ccc; }
+    body.light #join-box h2 { color: #111; }
+    body.light #join-box input { background: #f5f5f5; border-color: #ccc; color: #111; }
+    body.light #join-box button { background: #555; }
+    body.light #join-box button:hover { background: #444; }
+    body.light #cookie-count { color: #111; }
+    body.light #cps-display { color: #555; }
+    body.light #upgrades-title, body.light #click-upgrades-title, body.light #attacks-title { color: #666; }
+    body.light .upgrade-btn { background: #fff; border-color: #ddd; color: #111; }
+    body.light .upgrade-btn .upg-desc, body.light .upgrade-btn .upg-owned { color: #666; }
+    body.light .upgrade-btn .upg-cost { color: #111; }
+    body.light .attack-btn { background: #fff5f5; border-color: #ffcccc; color: #111; }
+    body.light .attack-btn:hover:not(:disabled) { border-color: #ff4444; background: #ffe8e8; }
+    body.light .attack-btn .atk-desc, body.light .attack-btn .atk-cost { color: #cc4444; }
+    body.light #attack-target { background: #fff; border-color: #ccc; color: #111; }
+    body.light #right-panel { border-left-color: #ddd; }
+    body.light #leaderboard { background: #fff; border-bottom-color: #ddd; }
+    body.light #leaderboard h3 { color: #111; }
+    body.light #lb-list li { border-bottom-color: #eee; }
+    body.light #lb-list li .lb-name { color: #333; }
+    body.light #lb-list li .lb-score { color: #111; }
+    body.light #lb-list li.me .lb-name { color: #000; }
+    body.light #chat-section h3 { background: #f5f5f5; border-bottom-color: #ddd; color: #111; }
+    body.light #chat-input-row { background: #f5f5f5; border-top-color: #ddd; }
+    body.light #chat-input { background: #fff; border-color: #ddd; color: #111; }
+    body.light #chat-send { background: #555; }
+    body.light #chat-send:hover { background: #444; }
+    body.light #chat-messages::-webkit-scrollbar-thumb { background: #ccc; }
+    body.light .chat-msg.system { color: #888; }
+    body.light #lb-modal { background: #fff; border-color: #ddd; }
+    body.light #lb-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #lb-modal-close { color: #666; }
+    body.light #lb-modal-close:hover { color: #111; }
+    body.light #lb-modal-list li { border-bottom-color: #eee; }
+    body.light #lb-modal-list .lbm-rank { color: #888; }
+    body.light #lb-modal-list .lbm-name { color: #333; }
+    body.light #lb-modal-list .lbm-score { color: #111; }
+    body.light #pay-modal { background: #fff; border-color: #ddd; }
+    body.light #pay-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #pay-modal-close { color: #666; }
+    body.light #pay-modal-close:hover { color: #111; }
+    body.light #pay-target, body.light #pay-amount { background: #fff; border-color: #ddd; color: #111; }
+    body.light #report-modal { background: #fff; border-color: #ddd; }
+    body.light #report-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #report-modal-close { color: #666; }
+    body.light #report-modal-close:hover { color: #111; }
+    body.light #report-tabs { border-bottom-color: #eee; }
+    body.light .report-tab { color: #666; }
+    body.light .report-tab:hover { color: #111; }
+    body.light .report-tab.active { color: #111; }
+    body.light .report-panel input, body.light .report-panel textarea { background: #f5f5f5; border-color: #ddd; color: #111; }
+    body.light .rp-dropdown { background: #fff; border-color: #ccc; }
+    body.light .rp-option { color: #111; }
+    body.light .rp-option:hover, body.light .rp-option.focused { background: #e8f0ff; color: #111; }
+    body.light .debuff-chip { background: #ffe8e8; border-color: #ff6666; color: #cc2222; }
   </style>
 </head>
 <body>
@@ -691,6 +822,8 @@
   <div id="left-btns">
     <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
     <button id="vc-btn" title="Voice Chat">🎤 VC</button>
+    <button id="report-btn" title="Reports">📋 Report</button>
+    <button id="theme-btn" title="Toggle light/dark mode"></button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
@@ -725,6 +858,40 @@
   </div>
 </div>
 
+<!-- Report Modal -->
+<div id="report-modal-overlay">
+  <div id="report-modal">
+    <div id="report-modal-header">
+      📋 Submit a Report
+      <button id="report-modal-close">✕</button>
+    </div>
+    <div id="report-tabs">
+      <button class="report-tab active" data-tab="player">🚨 Report Player</button>
+      <button class="report-tab" data-tab="bug">🐛 Report Bug</button>
+      <button class="report-tab" data-tab="suggestion">💡 Suggestion</button>
+    </div>
+    <div id="report-modal-body">
+      <div class="report-panel active" id="rpanel-player">
+        <div class="rp-search-wrap">
+          <input id="report-player-input" type="text" placeholder="Search player name..." autocomplete="off" maxlength="50" />
+          <div id="report-player-dropdown" class="rp-dropdown"></div>
+        </div>
+        <textarea id="report-player-text" placeholder="Describe what happened..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-player-submit">Submit Report</button>
+      </div>
+      <div class="report-panel" id="rpanel-bug">
+        <textarea id="report-bug-text" placeholder="Describe the bug..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-bug-submit">Submit Report</button>
+      </div>
+      <div class="report-panel" id="rpanel-suggestion">
+        <textarea id="report-suggestion-text" placeholder="Your suggestion..." maxlength="1000"></textarea>
+        <button class="report-submit-btn" id="report-suggestion-submit">Submit Report</button>
+      </div>
+      <div id="report-result"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Console -->
 <div id="admin-console">
   <div id="admin-console-titlebar">
@@ -749,24 +916,30 @@
 
 <div id="main">
   <div id="game-panel">
-    <div id="cookie-count">0 cookies</div>
-    <div id="cps-display">0 cookies/sec</div>
-    <div id="cookie-row">
-      <button id="cookie-btn" title="Click me!">🍪</button>
-      <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+    <!-- Cookie area: always visible, never scrolls -->
+    <div id="cookie-area">
+      <div id="cookie-count">0 cookies</div>
+      <div id="cps-display">0 cookies/sec</div>
+      <div id="cookie-row">
+        <button id="cookie-btn" title="Click me!"><span style="pointer-events:none;user-select:none;-webkit-user-select:none;">🍪</span></button>
+        <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
+      </div>
     </div>
-    <div id="upgrades-title">Upgrades</div>
-    <div id="upgrades"></div>
-    <div id="powerups-title">⚡ Power-Ups</div>
-    <div id="powerups"></div>
-    <div id="debuffs-display"></div>
-    <div id="attacks-title">⚔️ Attacks</div>
-    <div id="attack-target-row">
-      <span style="color:#aaa;font-size:0.8rem;">Target:</span>
-      <select id="attack-target"><option value="">— pick player —</option></select>
+    <!-- Upgrades/attacks area: scrollable -->
+    <div id="upgrades-scroll">
+      <div id="click-upgrades-title">👆 Click Upgrades</div>
+      <div id="click-upgrades"></div>
+      <div id="upgrades-title">⚙️ Auto Upgrades</div>
+      <div id="upgrades"></div>
+      <div id="debuffs-display"></div>
+      <div id="attacks-title">⚔️ Attacks</div>
+      <div id="attack-target-row">
+        <span style="color:#aaa;font-size:0.8rem;">Target:</span>
+        <select id="attack-target"><option value="">— pick player —</option></select>
+      </div>
+      <div id="attack-error-msg"></div>
+      <div id="attacks"></div>
     </div>
-    <div id="attack-error-msg"></div>
-    <div id="attacks"></div>
   </div>
 
   <div id="right-panel">
@@ -804,51 +977,56 @@
   document.addEventListener('touchstart', () => getAudioCtx(), { once: true, passive: true });
   document.addEventListener('click',      () => getAudioCtx(), { once: true, passive: true });
 
-  const UPGRADES = [
-    { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
+  const CPS_UPGRADES = [
     { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
     { id: 'farm',       name: '🌾 Farm',           desc: '+5/sec',            baseCost: 500,      clickPower: 0,    cps: 5 },
+    { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec',            baseCost: 4000,     clickPower: 0,    cps: 8 },
     { id: 'mine',       name: '⛏️ Mine',           desc: '+10/sec',           baseCost: 2000,     clickPower: 0,    cps: 10 },
     { id: 'factory',    name: '🏭 Factory',        desc: '+20/sec',           baseCost: 8000,     clickPower: 0,    cps: 20 },
+    { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec',           baseCost: 30000,    clickPower: 0,    cps: 40 },
     { id: 'bank',       name: '🏦 Bank',           desc: '+50/sec',           baseCost: 20000,    clickPower: 0,    cps: 50 },
     { id: 'temple',     name: '⛩️ Temple',         desc: '+100/sec',          baseCost: 75000,    clickPower: 0,    cps: 100 },
+    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec',          baseCost: 150000,   clickPower: 0,    cps: 150 },
     { id: 'wizard',     name: '🧙 Wizard',         desc: '+200/sec',          baseCost: 200000,   clickPower: 0,    cps: 200 },
     { id: 'shipment',   name: '🚀 Shipment',       desc: '+500/sec',          baseCost: 500000,   clickPower: 0,    cps: 500 },
     { id: 'alchemy',    name: '⚗️ Alchemy',        desc: '+1K/sec',           baseCost: 1500000,  clickPower: 0,    cps: 1000 },
     { id: 'portal',     name: '🌀 Portal',         desc: '+5K/sec',           baseCost: 5000000,  clickPower: 0,    cps: 5000 },
+    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+8K/sec',           baseCost: 8000000,  clickPower: 0,    cps: 8000 },
     { id: 'timemachine',name: '⏰ Time Machine',   desc: '+10K/sec',          baseCost: 15000000, clickPower: 0,    cps: 10000 },
+    { id: 'megaportal', name: '🌐 Mega Portal',    desc: '+30K/sec',          baseCost: 4e7,      clickPower: 0,    cps: 30000 },
     { id: 'antimatter', name: '⚛️ Antimatter',     desc: '+50K/sec',          baseCost: 75000000, clickPower: 0,    cps: 50000 },
     { id: 'prism',      name: '🔮 Prism',          desc: '+200K/sec',         baseCost: 3e8,      clickPower: 0,    cps: 200000 },
+    { id: 'quantumcpu', name: '🧬 Quantum CPU',    desc: '+400K/sec',         baseCost: 2e9,      clickPower: 0,    cps: 400000 },
     { id: 'chancemaker',name: '🎲 Chancemaker',    desc: '+1M/sec',           baseCost: 1e9,      clickPower: 0,    cps: 1000000 },
     { id: 'fractal',    name: '🌌 Fractal Engine', desc: '+5M/sec',           baseCost: 5e9,      clickPower: 0,    cps: 5000000 },
-    { id: 'megaclick',  name: '👆 Mega Click',     desc: '+10 click',         baseCost: 50000,    clickPower: 10,   cps: 0 },
-    { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+50 click',         baseCost: 500000,   clickPower: 50,   cps: 0 },
-    { id: 'godclick',   name: '✨ God Click',      desc: '+200 click',        baseCost: 5000000,  clickPower: 200,  cps: 0 },
-    { id: 'omnclick',   name: '💥 Omni Click',     desc: '+1000 click',       baseCost: 50000000, clickPower: 1000, cps: 0 },
-    { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec (frost)',    baseCost: 4000,     clickPower: 0,    cps: 8 },
-    { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec (frost)',   baseCost: 30000,    clickPower: 0,    cps: 40 },
-    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,    clickPower: 0,    cps: 150 },
-    // OP Tier
-    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+2K/sec',           baseCost: 8000000,   clickPower: 0,    cps: 2000 },
-    { id: 'megaportal', name: '🌐 Mega Portal',     desc: '+25K/sec',          baseCost: 1e8,       clickPower: 0,    cps: 25000 },
-    { id: 'quantumcpu', name: '🧬 Quantum CPU',     desc: '+200K/sec',         baseCost: 5e9,       clickPower: 0,    cps: 200000 },
-    { id: 'darkmatter', name: '🖤 Dark Matter',     desc: '+1M/sec',           baseCost: 5e10,      clickPower: 0,    cps: 1000000 },
-    { id: 'multiverse', name: '🌌 Multiverse',      desc: '+5M/sec',           baseCost: 2.5e11,    clickPower: 0,    cps: 5000000 },
-    { id: 'cookiegod',  name: '👑 Cookie God',      desc: '+20M/sec',          baseCost: 1e12,      clickPower: 0,    cps: 20000000 },
-    { id: 'hyperclk',   name: '🚀 Hyper Click',     desc: '+10K click',        baseCost: 1e8,       clickPower: 10000, cps: 0 },
-    { id: 'godsmash',   name: '⚡ God Smash',       desc: '+100K click',       baseCost: 1e10,      clickPower: 100000, cps: 0 },
+    { id: 'darkmatter', name: '🖤 Dark Matter',    desc: '+8M/sec',           baseCost: 1.5e10,   clickPower: 0,    cps: 8000000 },
+    { id: 'multiverse', name: '🪐 Multiverse',     desc: '+25M/sec',          baseCost: 7.5e10,   clickPower: 0,    cps: 25000000 },
+    { id: 'cookiegod',  name: '👑 Cookie God',     desc: '+100M/sec',         baseCost: 5e11,     clickPower: 0,    cps: 100000000 },
   ];
 
-  const POWERUPS = [
-    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× click for 60s',          cost: 50000,      clickBoost: 2,   duration: 60000  },
-    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     clickBoost: 10,  duration: 30000  },
-    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× click for 45s',          cost: 500000,     clickBoost: 5,   duration: 45000  },
-    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× click for 20s',         cost: 2000000,    clickBoost: 10,  duration: 20000  },
-    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    clickBoost: 50,  duration: 15000  },
-    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× click for 15s',         cost: 10000000,   clickBoost: 20,  duration: 15000  },
-    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× click for 10s',        cost: 50000000,   clickBoost: 100, duration: 10000  },
-    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× click for 8s',         cost: 500000000,  clickBoost: 500, duration: 8000   },
+  const CLICK_UPGRADES = [
+    { id: 'cursor',     name: '🖱️ Cursor',         desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
+    { id: 'doubletap',  name: '✌️ Double Tap',      desc: '+2 click',          baseCost: 50,       clickPower: 2,    cps: 0 },
+    { id: 'stronghand', name: '💪 Strong Hand',     desc: '+4 click',          baseCost: 200,      clickPower: 4,    cps: 0 },
+    { id: 'quickfinger',name: '☝️ Quick Finger',    desc: '+8 click',          baseCost: 750,      clickPower: 8,    cps: 0 },
+    { id: 'powerclick', name: '🔥 Power Click',     desc: '+15 click',         baseCost: 2500,     clickPower: 15,   cps: 0 },
+    { id: 'megaclick',  name: '👊 Mega Click',      desc: '+30 click',         baseCost: 8000,     clickPower: 30,   cps: 0 },
+    { id: 'speedclick', name: '💨 Speed Click',     desc: '+60 click',         baseCost: 25000,    clickPower: 60,   cps: 0 },
+    { id: 'ultraclick', name: '⚡ Ultra Click',     desc: '+120 click',        baseCost: 80000,    clickPower: 120,  cps: 0 },
+    { id: 'superclick', name: '🌟 Super Click',     desc: '+250 click',        baseCost: 250000,   clickPower: 250,  cps: 0 },
+    { id: 'godclick',   name: '✨ God Click',       desc: '+500 click',        baseCost: 750000,   clickPower: 500,  cps: 0 },
+    { id: 'omegaclick', name: '🔄 Omega Click',     desc: '+1K click',         baseCost: 2500000,  clickPower: 1000, cps: 0 },
+    { id: 'omnclick',   name: '💥 Omni Click',      desc: '+2.5K click',       baseCost: 8000000,  clickPower: 2500, cps: 0 },
+    { id: 'blastclick', name: '💣 Blast Click',     desc: '+6K click',         baseCost: 30000000, clickPower: 6000, cps: 0 },
+    { id: 'hyperclk',   name: '🛸 Hyper Click',     desc: '+15K click',        baseCost: 1e8,      clickPower: 15000, cps: 0 },
+    { id: 'cosmicclk',  name: '☄️ Cosmic Click',    desc: '+40K click',        baseCost: 4e8,      clickPower: 40000, cps: 0 },
+    { id: 'godsmash',   name: '🔱 God Smash',       desc: '+100K click',       baseCost: 1.5e9,    clickPower: 100000, cps: 0 },
+    { id: 'quantumclk', name: '🔬 Quantum Click',   desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
+    { id: 'divineclk',  name: '👼 Divine Click',    desc: '+1M click',         baseCost: 13e9,     clickPower: 1000000, cps: 0 },
+    { id: 'infinityclk',name: '♾️ Infinity Click',   desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
   ];
+
+  const UPGRADES = [...CPS_UPGRADES, ...CLICK_UPGRADES];
 
   const ATTACKS = [
     { id: 'freeze10',  name: '❄️ Freeze Ray I',   desc: 'Freeze CPS for 10s',  cost: 3000    },
@@ -864,7 +1042,6 @@
   ];
 
   const activeDebuffs = {}; // { type: clearTimeout }
-  const activePUBoosts = {}; // { puId: { cpsBoost, clickBoost } }
   let cpsMultiplier = 1;
   let clickMultiplier = 1;
 
@@ -878,11 +1055,6 @@
   function getSellValue(upg) {
     if (owned[upg.id] <= 0) return 0;
     return Math.floor(0.3 * upg.baseCost * Math.pow(1.15, owned[upg.id] - 1));
-  }
-
-  function rebuildMultipliers() {
-    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * (b.clickBoost || 1), 1);
-    // cpsMultiplier intentionally not affected by power-ups (clicks only)
   }
 
   function getClickPower() {
@@ -902,11 +1074,10 @@
   }
 
   // ---- UI ----
-  // Build upgrade buttons once, then only update state
-  function buildUpgrades() {
-    const container = document.getElementById('upgrades');
+  function buildUpgradeList(list, containerId) {
+    const container = document.getElementById(containerId);
     container.innerHTML = '';
-    UPGRADES.forEach(upg => {
+    list.forEach(upg => {
       const card = document.createElement('div');
       card.className = 'upgrade-btn';
       card.id = 'upg-' + upg.id;
@@ -915,77 +1086,32 @@
         <div class="upg-desc">${upg.desc}</div>
         <div class="upg-cost" id="upg-cost-${upg.id}">🍪 ${formatNum(getCost(upg))}</div>
         <div class="upg-owned" id="upg-owned-${upg.id}">owned: 0</div>
-        <button class="upg-sell-btn" id="upg-sell-${upg.id}" title="Sell for 30%" disabled>✕</button>
+        <div class="upg-actions">
+          <button class="upg-buy-btn"  id="upg-buy-${upg.id}"  disabled>🟢 Buy</button>
+          <button class="upg-sell-btn" id="upg-sell-${upg.id}" disabled>🔴 Sell</button>
+        </div>
       `;
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.upg-sell-btn')) return;
-        if (card.classList.contains('disabled')) return;
+      card.querySelector('.upg-buy-btn').addEventListener('click', () => {
         const cost = getCost(upg);
         if (cookies >= cost) {
           cookies -= cost;
           owned[upg.id]++;
-          recalcCps();
-          updateButtons();
-          updateDisplay();
-          saveProgress();
+          recalcCps(); updateButtons(); updateDisplay(); saveProgress();
         }
       });
-      card.querySelector('.upg-sell-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
+      card.querySelector('.upg-sell-btn').addEventListener('click', () => {
         if (owned[upg.id] <= 0) return;
-        const refund = getSellValue(upg);
+        cookies += getSellValue(upg);
         owned[upg.id]--;
-        cookies += refund;
-        recalcCps();
-        updateButtons();
-        updateDisplay();
-        saveProgress();
+        recalcCps(); updateButtons(); updateDisplay(); saveProgress();
       });
       container.appendChild(card);
     });
   }
 
-  function buildPowerups() {
-    const container = document.getElementById('powerups');
-    container.innerHTML = '';
-    POWERUPS.forEach(pu => {
-      const btn = document.createElement('button');
-      btn.className = 'powerup-btn';
-      btn.id = 'pu-' + pu.id;
-      btn.innerHTML = `
-        <div class="pu-name">${pu.name}</div>
-        <div class="pu-desc">${pu.desc}</div>
-        <div class="pu-cost">🍪 ${formatNum(pu.cost)}</div>
-        <div class="pu-timer" id="pu-timer-${pu.id}"></div>
-      `;
-      btn.addEventListener('click', () => {
-        if (cookies < pu.cost || activePUBoosts[pu.id]) return;
-        cookies -= pu.cost;
-        activePUBoosts[pu.id] = { clickBoost: pu.clickBoost || 1 };
-        rebuildMultipliers();
-        btn.disabled = true;
-        let remaining = Math.ceil(pu.duration / 1000);
-        const timerEl = document.getElementById('pu-timer-' + pu.id);
-        if (timerEl) timerEl.textContent = remaining + 's';
-        const iv = setInterval(() => {
-          remaining--;
-          if (timerEl) timerEl.textContent = remaining > 0 ? remaining + 's' : '';
-        }, 1000);
-        setTimeout(() => {
-          clearInterval(iv);
-          delete activePUBoosts[pu.id];
-          rebuildMultipliers();
-          btn.disabled = cookies < pu.cost;
-          if (timerEl) timerEl.textContent = '';
-          updateDisplay();
-          updateButtons();
-        }, pu.duration);
-        updateDisplay();
-        updateButtons();
-        saveProgress();
-      });
-      container.appendChild(btn);
-    });
+  function buildUpgrades() {
+    buildUpgradeList(CPS_UPGRADES, 'upgrades');
+    buildUpgradeList(CLICK_UPGRADES, 'click-upgrades');
   }
 
   function buildAttacks() {
@@ -1019,25 +1145,19 @@
   function updateButtons() {
     UPGRADES.forEach(upg => {
       const cost = getCost(upg);
-      const card = document.getElementById('upg-' + upg.id);
-      if (!card) return;
-      card.classList.toggle('disabled', cookies < cost);
-      const costEl = document.getElementById('upg-cost-' + upg.id);
+      const costEl  = document.getElementById('upg-cost-'  + upg.id);
       const ownedEl = document.getElementById('upg-owned-' + upg.id);
-      const sellBtn = document.getElementById('upg-sell-' + upg.id);
-      if (costEl) costEl.textContent = '🍪 ' + formatNum(cost);
-      if (ownedEl) ownedEl.textContent = 'owned: ' + owned[upg.id] + (owned[upg.id] > 0 ? ' (sell: ' + formatNum(getSellValue(upg)) + ')' : '');
+      const buyBtn  = document.getElementById('upg-buy-'   + upg.id);
+      const sellBtn = document.getElementById('upg-sell-'  + upg.id);
+      if (costEl)  costEl.textContent  = '🍪 ' + formatNum(cost);
+      if (ownedEl) ownedEl.textContent = 'owned: ' + owned[upg.id];
+      if (buyBtn)  buyBtn.disabled  = cookies < cost;
       if (sellBtn) sellBtn.disabled = owned[upg.id] <= 0;
     });
     ATTACKS.forEach(atk => {
       const btn = document.getElementById('atk-' + atk.id);
       if (!btn) return;
       btn.disabled = cookies < atk.cost;
-    });
-    POWERUPS.forEach(pu => {
-      const btn = document.getElementById('pu-' + pu.id);
-      if (!btn) return;
-      if (!activePUBoosts[pu.id]) btn.disabled = cookies < pu.cost;
     });
   }
 
@@ -1101,6 +1221,7 @@
   let acFlagged = false;
   let acFlagStart = null;
   let acLocked = false;
+  let acHardLocked = false;
   let acHighCpsSeconds = 0;
   let acWhitelisted = false;
 
@@ -1147,15 +1268,16 @@
     setTimeout(() => {
       acLocked = false;
       acHighCpsSeconds = 0;
-      acSustainedMidSecs = 0;
       acOnOffCount = 0;
       clickTimes.length = 0;
       interClickGaps.length = 0;
       cpsHistory.length = 0;
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.textContent = '🍪';
-      showFlagBanner(false);
+      if (!acHardLocked) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = '🍪';
+        showFlagBanner(false);
+      }
       if (socket && myName) socket.emit('autoclicker_report', { unlocked: true });
     }, 10000);
   }
@@ -1286,24 +1408,66 @@
   });
 
   // ---- Game loop ----
-  let drainAmount = 0; // active curse drain per tick
+  let drainAmount = 0; // active drain/sec (may stack from multiple attacks)
+
+  // Timestamp-based debuff expiry — immune to background-tab setTimeout throttling.
+  // Each entry: { until: ms, restore: fn }
+  const debuffExpiry = {};
+
+  function scheduleDebuff(key, durationMs, restoreFn) {
+    // If already active, cancel old restore and overwrite
+    if (debuffExpiry[key]) delete debuffExpiry[key];
+    debuffExpiry[key] = { until: Date.now() + durationMs, restore: restoreFn };
+  }
+
+  function checkDebuffExpiry() {
+    const now = Date.now();
+    Object.keys(debuffExpiry).forEach(key => {
+      if (now >= debuffExpiry[key].until) {
+        debuffExpiry[key].restore();
+        delete debuffExpiry[key];
+      }
+    });
+  }
+
+  // Force a full state sync when the player returns to this tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Save immediately via socket when tab is hidden — fires before beforeunload
+      // so the server has the latest value even if the beacon races with auth
+      saveProgress();
+    } else {
+      checkDebuffExpiry(); // expire any debuffs that ended while away
+      recalcCps();
+      updateDisplay();
+      renderUpgrades();
+      renderAttacks();
+      lastGameTick = Date.now(); // reset delta so we don't catch up all the missed time
+    }
+  });
+
+  let lastGameTick = Date.now();
   setInterval(() => {
+    const now = Date.now();
+    // Cap elapsed time at 200ms — prevents a huge cookie windfall after returning from
+    // a long background stint, and stops drain from wiping cookies unfairly.
+    const dt = Math.min(now - lastGameTick, 200) / 1000;
+    lastGameTick = now;
+
+    // Check if any debuffs have expired (handles background-tab timer throttling)
+    checkDebuffExpiry();
+
     // AFK check
-    if (myName && !afkFrozen && Date.now() - lastActivity > AFK_MS) {
+    if (myName && !afkFrozen && now - lastActivity > AFK_MS) {
       afkFrozen = true;
       showAfkOverlay();
     }
 
-    if (afkFrozen) return; // production paused while AFK
+    if (afkFrozen) return;
 
-    let gained = totalCps / 20;
-    if (drainAmount > 0) gained -= drainAmount / 20;
-    if (gained !== 0) {
+    const gained = (totalCps - drainAmount) * dt;
+    if (gained !== 0 || totalCps > 0) {
       cookies = Math.max(0, cookies + gained);
-      updateDisplay();
-      renderUpgrades();
-      renderAttacks();
-    } else if (totalCps > 0) {
       updateDisplay();
       renderUpgrades();
       renderAttacks();
@@ -1321,12 +1485,13 @@
 
   // Save every 5 seconds
   setInterval(saveProgress, 5000);
-  // Save when tab closes
-  window.addEventListener('beforeunload', () => {
+  // Save when tab closes (beforeunload + pagehide for browser compatibility)
+  function doBeaconSave() {
     if (!myName) return;
-    // sendBeacon is guaranteed to fire even as the page closes
-    navigator.sendBeacon('/save', JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned }));
-  });
+    navigator.sendBeacon('/save', new Blob([JSON.stringify({ username: myName, cookies: Math.floor(cookies), owned })], { type: 'application/json' }));
+  }
+  window.addEventListener('beforeunload', doBeaconSave);
+  window.addEventListener('pagehide', doBeaconSave);
 
   // ---- Join ----
   function startGame(name, existingSocket) {
@@ -1339,7 +1504,22 @@
     updateDisplay();
 
     socket.emit('join', name);
+    socket.emit('get_all_players');
     document.getElementById('name-display').textContent = name;
+
+    // ---- AFK detection (5 min idle) ----
+    let afkTimer = null;
+    let isAfk = false;
+    const AFK_MS = 5 * 60 * 1000;
+    function resetAfkTimer() {
+      if (isAfk) { isAfk = false; socket.emit('set_active'); }
+      clearTimeout(afkTimer);
+      afkTimer = setTimeout(() => { isAfk = true; socket.emit('set_afk'); }, AFK_MS);
+    }
+    ['click','keydown','touchstart','mousemove'].forEach(ev =>
+      document.addEventListener(ev, resetAfkTimer, { passive: true })
+    );
+    resetAfkTimer();
 
     // Load saved name color and wire up color picker
     const savedColor = localStorage.getItem('cc_color_' + name) || '#aaaaff';
@@ -1362,14 +1542,16 @@
 
     socket.on('leaderboard', (lb) => {
       fullLeaderboard = lb;
+      window._reportPlayerNames = lb.map(p => p.name);
 
       const list = document.getElementById('lb-list');
       list.innerHTML = '';
       lb.forEach((p, i) => {
         const li = document.createElement('li');
         if (p.name === myName) li.classList.add('me');
+        const dot = (!p.online || p.afk) ? '<span style="color:#888" title="Offline/AFK">●</span> ' : '<span style="color:#4f4" title="Online">●</span> ';
         li.innerHTML = `
-          <span class="lb-name">${i + 1}. ${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}</span>
+          <span class="lb-name">${i + 1}. ${dot}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;">💤</span>' : ''}</span>
           <span class="lb-score">${formatNum(p.cookies)}</span>
         `;
         list.appendChild(li);
@@ -1401,7 +1583,7 @@
         const li = document.createElement('li');
         li.innerHTML = `
           <span class="lbm-rank">${i + 1}.</span>
-          <span class="lbm-name${p.name === myName ? ' me' : ''}">${p.online ? '<span style="color:#4f4" title="Online">●</span> ' : '<span style="color:#888" title="Offline">●</span> '}${p.name}</span>
+          <span class="lbm-name${p.name === myName ? ' me' : ''}">${(!p.online || p.afk) ? '<span style="color:#888" title="Offline/AFK">●</span> ' : '<span style="color:#4f4" title="Online">●</span> '}${p.name}${p.afk ? ' <span style="font-size:0.7rem;color:#aaa;">💤</span>' : ''}</span>
           <span class="lbm-score">${formatNum(p.cookies)}</span>
         `;
         ul.appendChild(li);
@@ -1476,38 +1658,33 @@
     // Attack received
     socket.on('attack_hit', ({ attackId, attackerName }) => {
       if (attackId === 'freeze10') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 10000, '❄️ Freeze Ray I! CPS=0 for 10s');
-        setTimeout(() => { totalCps = prev; }, 10000);
+        scheduleDebuff('freeze', 10000, () => { totalCps = prev; });
       } else if (attackId === 'freeze20') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 20000, '🧊 Freeze Ray II! CPS=0 for 20s');
-        setTimeout(() => { totalCps = prev; }, 20000);
+        scheduleDebuff('freeze', 20000, () => { totalCps = prev; });
       } else if (attackId === 'freeze30') {
-        const prev = totalCps;
-        totalCps = 0;
+        const prev = totalCps; totalCps = 0;
         applyDebuff('freeze', 30000, '💎 Freeze Ray III! CPS=0 for 30s');
-        setTimeout(() => { totalCps = prev; }, 30000);
+        scheduleDebuff('freeze', 30000, () => { totalCps = prev; });
       } else if (attackId === 'curse') {
-        drainAmount = 20;
+        drainAmount += 20;
         applyDebuff('curse', 20000, '☠️ Cursed! -20/sec');
-        setTimeout(() => { drainAmount = 0; }, 20000);
+        scheduleDebuff('curse', 20000, () => { drainAmount = Math.max(0, drainAmount - 20); });
       } else if (attackId === 'virus') {
-        const prev = totalCps;
-        totalCps = Math.floor(prev / 2);
+        const prev = totalCps; totalCps = Math.floor(prev / 2);
         applyDebuff('virus', 25000, '🦠 Virus! CPS halved');
-        setTimeout(() => { totalCps = prev; }, 25000);
+        scheduleDebuff('virus', 25000, () => { totalCps = prev; });
       } else if (attackId === 'drain') {
-        drainAmount = (drainAmount || 0) + 100;
+        drainAmount += 100;
         applyDebuff('drain', 15000, '🕳️ Drained! -100/sec');
-        setTimeout(() => { drainAmount = Math.max(0, drainAmount - 100); }, 15000);
+        scheduleDebuff('drain', 15000, () => { drainAmount = Math.max(0, drainAmount - 100); });
       } else if (attackId === 'timetheft') {
-        const prev = totalCps;
-        totalCps = -prev;
+        const prev = totalCps; totalCps = -prev;
         applyDebuff('timetheft', 30000, '⏳ Time Theft! CPS reversed');
-        setTimeout(() => { totalCps = prev; }, 30000);
+        scheduleDebuff('timetheft', 30000, () => { totalCps = prev; });
       } else if (attackId === 'steal10k') {
         cookies = Math.max(0, cookies - 10000);
         applyDebuff('steal', 3000, '💸 Cookie Snatch! Lost 10,000 cookies');
@@ -1574,6 +1751,37 @@
       setTimeout(() => { window.location.href = 'about:blank'; }, 100);
     });
 
+    socket.on('ac_hard_timeout', (secs) => {
+      acHardLocked = true;
+      const btn = document.getElementById('cookie-btn');
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      showFlagBanner(true);
+      let remaining = secs;
+      function fmtAcTime(s) {
+        const m = Math.floor(s / 60), sec = s % 60;
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+      function updateAcBtn() {
+        btn.textContent = '🔨 ' + fmtAcTime(remaining);
+      }
+      updateAcBtn();
+      const acHardTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(acHardTimer);
+          acHardLocked = false;
+          acLocked = false;
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.textContent = '🍪';
+          showFlagBanner(false);
+        } else {
+          updateAcBtn();
+        }
+      }, 1000);
+    });
+
     socket.on('flashbang', ({ volume } = {}) => {
       // Flashbang: white blinding flash with grenade emoji
       const overlay = document.createElement('div');
@@ -1585,13 +1793,34 @@
       setTimeout(() => overlay.remove(), 2000);
 
       // Flashbang sound
-      const snd = new Audio('/flashbang-SoundEffectPro.mp3');
-      snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
-      snd.currentTime = 1.7;
-      snd.addEventListener('loadedmetadata', () => {
-        setTimeout(() => snd.pause(), (snd.duration - snd.currentTime - 3.5) * 1000);
-      });
-      snd.play().catch(() => {});
+      if (volume === 'god' || volume === 'boom') {
+        // god=400%, boom=1000% via Web Audio API GainNode (bypasses 1.0 HTMLAudio cap)
+        const gainVal = volume === 'boom' ? 10.0 : 4.0;
+        const ctx = getAudioCtx();
+        ctx.resume().then(() => {
+          fetch('/flashbang-SoundEffectPro.mp3')
+            .then(r => r.arrayBuffer())
+            .then(ab => ctx.decodeAudioData(ab))
+            .then(decoded => {
+              const src = ctx.createBufferSource();
+              src.buffer = decoded;
+              const gain = ctx.createGain();
+              gain.gain.value = gainVal;
+              src.connect(gain);
+              gain.connect(ctx.destination);
+              src.start(ctx.currentTime, 1.7);
+              setTimeout(() => { try { src.stop(); } catch(e) {} }, (decoded.duration - 1.7 - 3.5) * 1000);
+            }).catch(() => {});
+        });
+      } else {
+        const snd = new Audio('/flashbang-SoundEffectPro.mp3');
+        snd.volume = volume === 'loud' ? 0.5 : volume === 'quiet' ? 0.125 : volume === 'lol' ? 0.0625 : 0.25;
+        snd.currentTime = 1.7;
+        snd.addEventListener('loadedmetadata', () => {
+          setTimeout(() => snd.pause(), (snd.duration - snd.currentTime - 3.5) * 1000);
+        });
+        snd.play().catch(() => {});
+      }
 
     });
 
@@ -1624,6 +1853,35 @@
       });
     });
 
+    socket.on('fah', () => {
+      // FAH: sharp, loud air-horn burst (synthesized)
+      const ctx = getAudioCtx();
+      ctx.resume().then(() => {
+        const now = ctx.currentTime;
+        const gain = ctx.createGain();
+        // Quick loud attack, fast decay
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(1.2, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        gain.connect(ctx.destination);
+        // Two detuned oscillators for a brassy air-horn chord
+        [220, 277, 330].forEach(freq => {
+          const osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + 0.05);
+          const filt = ctx.createBiquadFilter();
+          filt.type = 'bandpass';
+          filt.frequency.value = 800;
+          filt.Q.value = 0.7;
+          osc.connect(filt);
+          filt.connect(gain);
+          osc.start(now);
+          osc.stop(now + 0.65);
+        });
+      });
+    });
+
     // ---- Voice Chat ----
     const ICE_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     let vcActive = false, vcStream = null, vcRecognition = null;
@@ -1633,6 +1891,7 @@
 
     function fmtVcTime(s) {
       if (s <= 0) return '0:00';
+      if (s >= 86400) return 'PERM';
       const m = Math.floor(s / 60), sec = s % 60;
       return `${m}:${String(sec).padStart(2,'0')}`;
     }
@@ -1671,16 +1930,33 @@
       vcBtn().textContent = '🎤 VC ●';
       socket.emit('vc_join');
 
-      // Speech recognition — send transcript to server for bad-word check
+      // Speech recognition — bad-word detection
+      // interimResults:true is critical: Chrome's profanity filter only applies to
+      // FINAL results. Interim results fire with the raw unfiltered transcript, so
+      // we catch the word before Chrome can replace it with **** or drop it.
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SR) {
+        // Use \b word boundaries so "class" doesn't match "ass", "bass" etc.
+        const VC_BAD = ['fuck','shit','bitch','dick','cock','pussy','cunt','fag','slut','whore','nigger','nigga','retard','kys'];
+        const vcBadRe = new RegExp('\\b(' + VC_BAD.join('|') + ')\\b', 'i');
         vcRecognition = new SR();
         vcRecognition.continuous = true;
-        vcRecognition.interimResults = false;
+        vcRecognition.interimResults = true; // get raw words before Chrome's filter runs
         vcRecognition.lang = 'en-US';
         vcRecognition.onresult = (ev) => {
-          const text = Array.from(ev.results).slice(ev.resultIndex).map(r => r[0].transcript).join(' ');
-          if (text.trim()) socket.emit('vc_speech', text);
+          for (let i = ev.resultIndex; i < ev.results.length; i++) {
+            const raw = ev.results[i][0].transcript;
+            // Check for explicit bad words using whole-word boundaries
+            const hasBad = vcBadRe.test(raw);
+            // Check for censored patterns (f***, ****)
+            const hasCensored = raw.split(/\s+/).some(w => /\*{2,}/.test(w) || /[a-z]\*+[a-z]/i.test(w));
+            if (hasBad || hasCensored) {
+              socket.emit('vc_bad_word');
+              return;
+            }
+            // Send final clean transcripts to server as a secondary check
+            if (ev.results[i].isFinal && raw.trim()) socket.emit('vc_speech', raw);
+          }
         };
         vcRecognition.onerror = () => {};
         vcRecognition.onend = () => { if (vcActive) try { vcRecognition.start(); } catch(e) {} };
@@ -1739,23 +2015,37 @@
 
     socket.on('vc_peer_left', (peerId) => { closePeer(peerId); });
 
+    let vcBanTimer = null;
+    function clearVcBan() {
+      if (vcBanTimer) { clearInterval(vcBanTimer); vcBanTimer = null; }
+      const btn = vcBtn();
+      btn.classList.remove('vc-banned');
+      btn.textContent = '🎤 VC';
+    }
+
     socket.on('vc_banned', (secs) => {
       leaveVC();
+      if (vcBanTimer) clearInterval(vcBanTimer);
       let remaining = secs;
+      const isPerm = remaining >= 86400;
       const btn = vcBtn();
       btn.classList.remove('vc-active');
       btn.classList.add('vc-banned');
       btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
-      const iv = setInterval(() => {
-        remaining--;
-        if (remaining <= 0) {
-          clearInterval(iv);
-          btn.classList.remove('vc-banned');
-          btn.textContent = '🎤 VC';
-        } else {
-          btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
-        }
-      }, 1000);
+      if (!isPerm) {
+        vcBanTimer = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearVcBan();
+          } else {
+            btn.textContent = `🔨 Banned ${fmtVcTime(remaining)}`;
+          }
+        }, 1000);
+      }
+    });
+
+    socket.on('vc_unbanned', () => {
+      clearVcBan();
     });
 
     socket.on('admin_cookie_change', ({ amount, action }) => {
@@ -1770,7 +2060,7 @@
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /timeout /flashbang /foghorn', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           adminLog('Logged in. Type /help for commands.', 'alog-ok');
@@ -1792,6 +2082,14 @@
     });
 
     socket.on('admin_playerlist', () => {});
+
+    // Reports
+    socket.on('all_players', (names) => { window._reportPlayerNames = names; });
+    if (window._reportResultHandler) window._reportResultHandler(socket);
+    socket.on('admin_reports_token', (tok) => {
+      window.open('/reports-viewer.html?token=' + encodeURIComponent(tok), '_blank');
+      adminLog('✅ Reports page opened in new tab.', 'alog-ok');
+    });
   }
 
 
@@ -1872,6 +2170,7 @@
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
       adminLog('/unban (name)                  — remove ban', 'alog-warn');
+      adminLog('/setpassword (name) (newpass)  — reset a player\'s password', 'alog-warn');
       adminLog('/ipban (ip) (sec|perm)         — ban by IP', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
       adminLog('/wipeaccount (name)            — wipe coins & upgrades (keep account)', 'alog-warn');
@@ -1887,8 +2186,13 @@
       adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
       adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet] — flashbang a player', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
+      adminLog('/fah (name)                    — blast a FAH air-horn at a player', 'alog-warn');
+      adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
+      adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
+      adminLog('/vcfilter on|off               — toggle auto bad-word VC ban', 'alog-warn');
+      adminLog('/reports                       — open reports viewer in new tab', 'alog-warn');
       return;
     }
     if (!socket) { adminLog('Not connected.', 'alog-err'); return; }
@@ -1917,6 +2221,11 @@
     } else if (cmd === '/unban') {
       if (!parts[1]) { adminLog('Usage: /unban (name)', 'alog-err'); return; }
       socket.emit('admin_unban', parts.slice(1).join(' '));
+    } else if (cmd === '/setpassword') {
+      if (parts.length < 3) { adminLog('Usage: /setpassword (name) (newpass)', 'alog-err'); return; }
+      const newPassword = parts[parts.length - 1];
+      const targetName = parts.slice(1, -1).join(' ');
+      socket.emit('admin_setpassword', { targetName, newPassword });
     } else if (cmd === '/ipban') {
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
@@ -1966,14 +2275,30 @@
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
       socket.emit('admin_kick', parts.slice(1).join(' '));
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god/boom]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god','boom'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/fah') {
+      if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
+      socket.emit('admin_fah', parts.slice(1).join(' '));
+    } else if (cmd === '/vcban') {
+      if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const targetName = parts.slice(1, -1).join(' ');
+      socket.emit('admin_vcban', { targetName, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+    } else if (cmd === '/vcunban') {
+      if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
+      socket.emit('admin_vcunban', parts.slice(1).join(' '));
+    } else if (cmd === '/vcfilter') {
+      if (!['on','off'].includes(parts[1])) { adminLog('Usage: /vcfilter on|off', 'alog-err'); return; }
+      socket.emit('admin_vcfilter', parts[1]);
+    } else if (cmd === '/reports') {
+      socket.emit('admin_get_reports_token');
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -1993,8 +2318,11 @@
       adminLog('/mute (name)                        — name-based mute', 'alog-warn');
       adminLog('/unmute (name)                      — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
-      adminLog('/flashbang (name) [loud/medium/quiet/lol] — flashbang', 'alog-warn');
+      adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
+      adminLog('/fah (name)                         — blast a FAH air-horn', 'alog-warn');
+      adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
+      adminLog('/vcunban (name)                     — remove VC ban', 'alog-warn');
     } else if (cmd === '/mute') {
       if (!parts[1]) { adminLog('Usage: /mute (name)', 'alog-err'); return; }
       socket.emit('admin_mute', parts.slice(1).join(' '));
@@ -2006,16 +2334,27 @@
       const secs = parts[parts.length - 1];
       socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(secs) });
     } else if (cmd === '/flashbang') {
-      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol]', 'alog-err'); return; }
-      const VOLS = ['loud','medium','quiet','lol'];
+      if (!parts[1]) { adminLog('Usage: /flashbang (name) [loud/medium/quiet/lol/god/boom]', 'alog-err'); return; }
+      const VOLS = ['loud','medium','quiet','lol','god','boom'];
       const vol = VOLS.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : 'lol';
       const targetName = VOLS.includes(parts[parts.length - 1]) ? parts.slice(1, -1).join(' ') : parts.slice(1).join(' ');
       socket.emit('admin_flashbang', { targetName, volume: vol });
     } else if (cmd === '/foghorn') {
       if (!parts[1]) { adminLog('Usage: /foghorn (name)', 'alog-err'); return; }
       socket.emit('admin_foghorn', parts.slice(1).join(' '));
+    } else if (cmd === '/fah') {
+      if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
+      socket.emit('admin_fah', parts.slice(1).join(' '));
+    } else if (cmd === '/vcban') {
+      if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
+      const dur = parts[parts.length - 1];
+      const targetName = parts.slice(1, -1).join(' ');
+      socket.emit('admin_vcban', { targetName, duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+    } else if (cmd === '/vcunban') {
+      if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
+      socket.emit('admin_vcunban', parts.slice(1).join(' '));
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /timeout /flashbang /foghorn', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-err');
     }
   });
 
@@ -2045,11 +2384,22 @@
       document.getElementById('auth-error').textContent = msg;
       return;
     }
-    // Always trust server data — it's authoritative across devices
-    cookies = savedCookies || 0;
-    const serverOwned = savedOwned || {};
-    Object.keys(serverOwned).forEach(k => {
-      if (owned[k] !== undefined) owned[k] = Number(serverOwned[k]) || 0;
+    // Start with server value, then check localStorage for a more recent snapshot.
+    // This handles the race where the page re-auth fires before the sendBeacon POST
+    // arrives at the server — the client would get 0, then overwrite the correct
+    // beacon value with 0 on the next save_progress tick.
+    let finalCookies = savedCookies || 0;
+    let finalOwned = savedOwned || {};
+    try {
+      const local = JSON.parse(localStorage.getItem('cc_' + username) || 'null');
+      if (local && (local.cookies || 0) > finalCookies) {
+        finalCookies = local.cookies;
+        if (local.owned) finalOwned = local.owned; // localStorage is more recent
+      }
+    } catch(e) {}
+    cookies = finalCookies;
+    Object.keys(finalOwned).forEach(k => {
+      if (owned[k] !== undefined) owned[k] = Number(finalOwned[k]) || 0;
     });
     recalcCps();
     startGame(username, socket0);
@@ -2104,9 +2454,138 @@
     socket.emit('pay_player', { targetName, amount });
   });
 
+  // ---- Report Modal ----
+  (function() {
+    const overlay  = document.getElementById('report-modal-overlay');
+    const closeBtn = document.getElementById('report-modal-close');
+    const resultEl = document.getElementById('report-result');
+    const playerInput = document.getElementById('report-player-input');
+    const dropdown    = document.getElementById('report-player-dropdown');
+    let focusedIdx = -1;
+
+    // Open / close
+    document.getElementById('report-btn').addEventListener('click', () => {
+      overlay.classList.add('open');
+      resultEl.textContent = '';
+    });
+    closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    // Tab switching
+    document.querySelectorAll('.report-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.report-tab').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.report-panel').forEach(p => p.classList.toggle('active', p.id === 'rpanel-' + btn.dataset.tab));
+        resultEl.textContent = '';
+      });
+    });
+
+    // Searchable player dropdown
+    function openDropdown(q) {
+      const names = (window._reportPlayerNames || []).filter(n => n !== myName);
+      const filtered = q
+        ? names.filter(n => n.toLowerCase().includes(q.toLowerCase()))
+        : names;
+      dropdown.innerHTML = '';
+      focusedIdx = -1;
+      if (filtered.length === 0) {
+        const d = document.createElement('div');
+        d.className = 'rp-option no-match';
+        d.textContent = q ? 'No players found.' : 'No players yet.';
+        dropdown.appendChild(d);
+      } else {
+        filtered.forEach(name => {
+          const d = document.createElement('div');
+          d.className = 'rp-option';
+          d.textContent = name;
+          d.addEventListener('mousedown', e => {
+            e.preventDefault();
+            playerInput.value = name;
+            dropdown.classList.remove('open');
+          });
+          dropdown.appendChild(d);
+        });
+      }
+      dropdown.classList.add('open');
+    }
+
+    playerInput.addEventListener('focus', () => openDropdown(playerInput.value));
+    playerInput.addEventListener('input', () => openDropdown(playerInput.value));
+    playerInput.addEventListener('blur', () => setTimeout(() => dropdown.classList.remove('open'), 150));
+
+    // Keyboard nav
+    playerInput.addEventListener('keydown', e => {
+      const opts = dropdown.querySelectorAll('.rp-option:not(.no-match)');
+      if (!opts.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        focusedIdx = Math.min(focusedIdx + 1, opts.length - 1);
+        opts.forEach((o, i) => o.classList.toggle('focused', i === focusedIdx));
+        opts[focusedIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusedIdx = Math.max(focusedIdx - 1, 0);
+        opts.forEach((o, i) => o.classList.toggle('focused', i === focusedIdx));
+        opts[focusedIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && focusedIdx >= 0) {
+        e.preventDefault();
+        playerInput.value = opts[focusedIdx].textContent;
+        dropdown.classList.remove('open');
+      } else if (e.key === 'Escape') {
+        dropdown.classList.remove('open');
+      }
+    });
+
+    // Submit
+    function submitReport(type, textId) {
+      if (!socket) { showResult('Not connected.', false); return; }
+      const text = document.getElementById(textId).value.trim();
+      if (!text) { showResult('Please enter a description.', false); return; }
+      if (type === 'player') {
+        const t = playerInput.value.trim();
+        if (!t) { showResult('Enter the player\'s name.', false); return; }
+        socket.emit('submit_report', { type, target: t, text });
+        document.getElementById(textId).value = '';
+        playerInput.value = '';
+      } else {
+        socket.emit('submit_report', { type, target: '', text });
+        document.getElementById(textId).value = '';
+      }
+    }
+
+    function showResult(msg, ok) {
+      resultEl.style.color = ok ? '#55ee88' : '#ff5555';
+      resultEl.textContent = msg;
+    }
+
+    document.getElementById('report-player-submit').addEventListener('click',     () => submitReport('player',     'report-player-text'));
+    document.getElementById('report-bug-submit').addEventListener('click',        () => submitReport('bug',        'report-bug-text'));
+    document.getElementById('report-suggestion-submit').addEventListener('click', () => submitReport('suggestion', 'report-suggestion-text'));
+
+    window._reportResultHandler = function(sock) {
+      sock.on('report_result', ({ ok, msg }) => {
+        showResult(ok ? '✅ Report submitted! Thank you.' : (msg || 'Error submitting report.'), ok);
+        if (ok) setTimeout(() => overlay.classList.remove('open'), 1800);
+      });
+    };
+  })();
+
+  // ---- Light / Dark mode toggle ----
+  (function() {
+    const btn = document.getElementById('theme-btn');
+    function applyTheme(light) {
+      document.body.classList.toggle('light', light);
+    }
+    applyTheme(localStorage.getItem('cc_theme') === 'light');
+    btn.addEventListener('click', () => {
+      const isLight = !document.body.classList.contains('light');
+      localStorage.setItem('cc_theme', isLight ? 'light' : 'dark');
+      applyTheme(isLight);
+    });
+  })();
+
   // ---- Init (before login) ----
   buildUpgrades();
-  buildPowerups();
   buildAttacks();
   updateDisplay();
 </script>

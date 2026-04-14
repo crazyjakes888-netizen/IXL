@@ -28,6 +28,44 @@ app.post('/save', (req, res) => {
   res.sendStatus(200);
 });
 
+// ---- Reports API (token-gated) ----
+app.get('/api/reports', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  res.json([...reports].reverse()); // newest first
+});
+
+app.delete('/api/reports/:id', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const id = Number(req.params.id);
+  const idx = reports.findIndex(r => r.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  reports.splice(idx, 1);
+  saveReports();
+  res.json({ ok: true });
+});
+
+// Join log — all players who have ever joined, never wiped
+app.get('/api/joinlog', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const entries = Object.entries(joinLog).map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  res.json(entries);
+});
+
+app.patch('/api/reports/:id/read', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const id = Number(req.params.id);
+  const r = reports.find(r => r.id === id);
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  r.read = !r.read;
+  saveReports();
+  res.json({ ok: true, read: r.read });
+});
+
 const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
@@ -44,6 +82,8 @@ const vcMembers = new Set();    // socket IDs currently in voice chat
 const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
 const adminNames = new Set();   // usernames (persists across reconnects)
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
+const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
+const acHardTimeouts = {};       // name.toLowerCase() -> expiry timestamp (10 min)
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -137,7 +177,9 @@ function normalize(str, parenAs = 'i') {
 }
 
 function isBad(norm) {
-  return BAD_WORDS.some(bad => norm === bad || norm.includes(bad));
+  // Exact match only — substring (.includes) causes false positives
+  // e.g. "class" contains "ass", "assassin" contains "ass", etc.
+  return BAD_WORDS.some(bad => norm === bad);
 }
 
 function filterMsg(text) {
@@ -147,6 +189,28 @@ function filterMsg(text) {
     }
     return word;
   });
+}
+
+let vcFilterEnabled = true; // toggled by /vcfilter on|off
+
+function broadcastVcList() {
+  const list = [];
+  vcMembers.forEach(id => {
+    const name = players[id] && players[id].name;
+    if (name) list.push({ id, name });
+  });
+  vcMembers.forEach(id => io.to(id).emit('vc_member_list', list));
+}
+
+function doVcBan(socket, name) {
+  const lower = name.toLowerCase();
+  if (vcBans[lower] && vcBans[lower] > Date.now()) return; // already banned
+  vcBans[lower] = Date.now() + 30 * 60 * 1000; // 30 minutes
+  vcMembers.delete(socket.id);
+  vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
+  broadcastVcList();
+  socket.emit('vc_banned', 1800);
+  io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 30 minutes (bad language).`, time: Date.now() });
 }
 
 io.on('connection', (socket) => {
@@ -205,16 +269,33 @@ io.on('connection', (socket) => {
     admins.forEach(adminId => {
       io.to(adminId).emit('admin_action_result', { ok: false, msg });
     });
+
+    // 3-strike hard timeout: 3 locks → 10-minute cookie button lockout
+    if (locked) {
+      const lower = name.toLowerCase();
+      acLockCounts[lower] = (acLockCounts[lower] || 0) + 1;
+      if (acLockCounts[lower] >= 3) {
+        acLockCounts[lower] = 0;
+        acHardTimeouts[lower] = Date.now() + 600000; // 10 minutes
+        socket.emit('ac_hard_timeout', 600);
+        const htMsg = `🔨 [AC] ${name} hit 3 strikes — cookie button locked for 10 minutes`;
+        console.log(htMsg);
+        admins.forEach(adminId => io.to(adminId).emit('admin_action_result', { ok: false, msg: htMsg }));
+      }
+    }
   });
 
   socket.on('save_progress', ({ cookies, owned }) => {
     const uname = (players[socket.id] && players[socket.id].name) || socket._authedName;
     if (!uname) return;
+    const val = Math.max(0, Math.floor(Number(cookies) || 0));
     if (accounts[uname]) {
-      accounts[uname].cookies = Math.max(0, Math.floor(Number(cookies) || 0));
+      accounts[uname].cookies = val;
       accounts[uname].owned = owned || {};
       saveAccounts();
     }
+    // Keep players in sync so disconnect handler never overwrites with a stale lower value
+    if (players[socket.id]) players[socket.id].cookies = val;
   });
 
   socket.on('join', (name) => {
@@ -235,6 +316,7 @@ io.on('connection', (socket) => {
     const isRejoining = !!recentlyLeft[safeName];
     // Don't delete — keep suppressing until the 30s timer expires naturally
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, lastAttack: 0, ip };
+    recordJoin(safeName);
 
     socket.emit('joined', { id: socket.id, name: safeName });
     io.emit('leaderboard', getLeaderboard());
@@ -250,6 +332,27 @@ io.on('connection', (socket) => {
     if (adminNames.has(safeName)) admins.add(socket.id);
     // Restore autoclicker whitelist status
     if (acWhitelist.has(safeName)) socket.emit('ac_whitelisted');
+    // Notify client immediately if they have an active VC ban (survives refresh)
+    const vcLower = safeName.toLowerCase();
+    if (vcBans[vcLower]) {
+      if (vcBans[vcLower] === Infinity || vcBans[vcLower] > Date.now()) {
+        const remaining = vcBans[vcLower] === Infinity ? 99999 : Math.ceil((vcBans[vcLower] - Date.now()) / 1000);
+        socket.emit('vc_banned', remaining);
+      } else {
+        delete vcBans[vcLower]; // expired, clean up
+      }
+    }
+
+    // Restore hard autoclicker timeout if still active (survives refresh)
+    const acLower = safeName.toLowerCase();
+    if (acHardTimeouts[acLower]) {
+      if (acHardTimeouts[acLower] > Date.now()) {
+        const remaining = Math.ceil((acHardTimeouts[acLower] - Date.now()) / 1000);
+        socket.emit('ac_hard_timeout', remaining);
+      } else {
+        delete acHardTimeouts[acLower]; // expired, clean up
+      }
+    }
   });
 
   socket.on('update_score', ({ cookies, cps }) => {
@@ -325,19 +428,12 @@ io.on('connection', (socket) => {
 
   // Attack
   const ATTACK_COOLDOWN_MS = 15000; // 15 seconds between attacks
-  const ATTACK_MIN_CPS = 1000;       // must earn 1K/sec to attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
     const COSTS = { freeze10: 3000, freeze20: 12000, freeze30: 35000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, steal10k: 10000, steal100k: 100000, steal1m: 1000000 };
     const cost = COSTS[attackId];
     if (!cost) return;
     if (players[socket.id].cookies < cost) return;
-
-    // CPS requirement
-    if (players[socket.id].cps < ATTACK_MIN_CPS) {
-      socket.emit('attack_error', { msg: '⚠️ You need at least 1K cookies/sec to attack!', refund: cost });
-      return;
-    }
 
     // Cooldown check
     const now = Date.now();
@@ -418,9 +514,11 @@ io.on('connection', (socket) => {
     const secs = Math.max(1, parseInt(seconds) || 30);
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === name.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
-    mutedIPs[entry[1].ip] = Date.now() + secs * 1000;
-    io.emit('chat', { system: true, msg: `⏱️ ${name} timed out for ${secs}s.`, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg: `Timed out ${name} for ${secs}s.` });
+    const lower = entry[1].name.toLowerCase();
+    mutedNames.add(lower);
+    setTimeout(() => mutedNames.delete(lower), secs * 1000);
+    io.emit('chat', { system: true, msg: `⏱️ ${entry[1].name} timed out for ${secs}s.`, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: `Timed out ${entry[1].name} for ${secs}s.` });
   });
 
   socket.on('admin_cookies', ({ name, amount, action }) => {
@@ -513,19 +611,8 @@ io.on('connection', (socket) => {
 
   socket.on('admin_wipeall', () => {
     if (!admins.has(socket.id)) return;
-    // Wipe every account in storage
-    Object.keys(accounts).forEach(name => {
-      accounts[name].cookies = 0;
-      accounts[name].owned = {};
-    });
-    saveAccounts();
-    // Reset all live sessions
-    Object.keys(players).forEach(sid => {
-      players[sid].cookies = 0;
-      io.to(sid).emit('admin_reset_you');
-    });
+    doWipeAll();
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
-    io.emit('leaderboard', getLeaderboard());
   });
 
   socket.on('admin_wipe_upgrades', (targetName) => {
@@ -555,6 +642,43 @@ io.on('connection', (socket) => {
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('foghorn');
     socket.emit('admin_action_result', { ok: true, msg: `📯 Foghorned ${targetName}` });
+  });
+
+  socket.on('admin_fah', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+    if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+    io.to(entry[0]).emit('fah');
+    socket.emit('admin_action_result', { ok: true, msg: `📢 FAH'd ${targetName}` });
+  });
+
+  socket.on('admin_vcban', ({ targetName, duration }) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const lower = targetName.toLowerCase();
+    const isPerm = duration === 'perm';
+    const secs = isPerm ? Infinity : (parseInt(duration) || 3600);
+    vcBans[lower] = isPerm ? Infinity : Date.now() + secs * 1000;
+    // Notify the target immediately whether or not they're in VC
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === lower);
+    if (entry) {
+      if (vcMembers.has(entry[0])) {
+        vcMembers.delete(entry[0]);
+        vcMembers.forEach(id => io.to(id).emit('vc_peer_left', entry[0]));
+      }
+      io.to(entry[0]).emit('vc_banned', isPerm ? 99999 : secs);
+    }
+    const label = isPerm ? 'permanently' : `for ${secs}s`;
+    socket.emit('admin_action_result', { ok: true, msg: `🔇 ${targetName} VC-banned ${label}.` });
+  });
+
+  socket.on('admin_vcunban', (targetName) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const lower = targetName.toLowerCase();
+    delete vcBans[lower]; // Delete even if not found (idempotent)
+    // Tell the target their ban is lifted so their UI clears immediately
+    const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === lower);
+    if (entry) io.to(entry[0]).emit('vc_unbanned');
+    socket.emit('admin_action_result', { ok: true, msg: `✅ ${targetName} VC ban removed.` });
   });
 
   socket.on('admin_ipban', ({ ip, duration }) => {
@@ -592,6 +716,16 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  socket.on('admin_setpassword', ({ targetName, newPassword }) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!targetName || !newPassword) { socket.emit('admin_action_result', { ok: false, msg: 'Usage: /setpassword (name) (newpass)' }); return; }
+    const key = Object.keys(accounts).find(k => k.toLowerCase() === targetName.toLowerCase());
+    if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found for "${targetName}".` }); return; }
+    accounts[key].pwHash = hashPw(newPassword);
+    saveAccounts();
+    socket.emit('admin_action_result', { ok: true, msg: `✅ Password for ${key} has been reset.` });
+  });
+
   socket.on('admin_unban', (targetName) => {
     if (!admins.has(socket.id)) return;
     const lower = targetName.toLowerCase();
@@ -617,7 +751,8 @@ io.on('connection', (socket) => {
     if (!name) return;
     const lower = name.toLowerCase();
     if (vcBans[lower] && vcBans[lower] > Date.now()) {
-      socket.emit('vc_banned', Math.ceil((vcBans[lower] - Date.now()) / 1000));
+      const remaining = vcBans[lower] === Infinity ? 99999 : Math.ceil((vcBans[lower] - Date.now()) / 1000);
+      socket.emit('vc_banned', remaining);
       return;
     }
     delete vcBans[lower]; // expired
@@ -637,23 +772,71 @@ io.on('connection', (socket) => {
   socket.on('vc_ice',    ({ to, candidate }) => { io.to(to).emit('vc_ice',    { from: socket.id, candidate }); });
 
   socket.on('vc_speech', (text) => {
+    if (!vcFilterEnabled) return;
     const name = players[socket.id] && players[socket.id].name;
     if (!name) return;
-    if (isBad(normalize(String(text).slice(0, 300)))) {
-      const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
-      vcBans[name.toLowerCase()] = expiry;
-      vcMembers.delete(socket.id);
-      vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
-      socket.emit('vc_banned', 3600);
-      io.emit('chat', { system: true, msg: `🔇 ${name} was banned from VC for 1 hour (bad language).`, time: Date.now() });
-    }
+    const raw = String(text).slice(0, 300);
+    const hasCensored = raw.split(/\s+/).some(w =>
+      /\*{2,}/.test(w) || /[a-z]\*+[a-z]/i.test(w)
+    );
+    if (hasCensored || isBad(normalize(raw))) doVcBan(socket, name);
+  });
+
+  // Client-side detection path: interim transcript caught bad word before Chrome filtered it
+  socket.on('vc_bad_word', () => {
+    if (!vcFilterEnabled) return;
+    const name = players[socket.id] && players[socket.id].name;
+    if (!name) return;
+    doVcBan(socket, name);
+  });
+
+  socket.on('admin_vcfilter', (state) => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    vcFilterEnabled = (state === 'on');
+    const label = vcFilterEnabled ? '🟢 ON' : '🔴 OFF';
+    socket.emit('admin_action_result', { ok: true, msg: `VC bad-word filter is now ${label}` });
+  });
+
+  // ---- Reports ----
+  socket.on('submit_report', ({ type, target, text }) => {
+    const player = players[socket.id];
+    const from = (player && player.name) || socket._authedName || 'Anonymous';
+    const validTypes = ['player', 'bug', 'suggestion'];
+    if (!validTypes.includes(type)) return;
+    const safeText = String(text || '').slice(0, 1000).replace(/[<>&"]/g, '');
+    const safeTarget = type === 'player' ? String(target || '').slice(0, 50).replace(/[<>&"]/g, '') : '';
+    if (!safeText.trim()) { socket.emit('report_result', { ok: false, msg: 'Please enter a description.' }); return; }
+    reports.push({ id: Date.now(), type, from, target: safeTarget, text: safeText, time: Date.now(), read: false });
+    saveReports();
+    socket.emit('report_result', { ok: true });
+    admins.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
+  });
+
+  socket.on('get_all_players', () => {
+    socket.emit('all_players', Object.keys(joinLog));
+  });
+
+  socket.on('set_afk', () => {
+    if (players[socket.id]) players[socket.id].afk = true;
+  });
+
+  socket.on('set_active', () => {
+    if (players[socket.id]) players[socket.id].afk = false;
+  });
+
+  socket.on('admin_get_reports_token', () => {
+    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const tok = crypto.randomBytes(16).toString('hex');
+    reportTokens[tok] = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+    socket.emit('admin_reports_token', tok);
   });
 
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
-      // Persist latest cookie count on disconnect (save_progress fires every 1s so this is a safety net)
-      if (accounts[name] && players[socket.id].cookies > 0) {
+      // Persist latest cookie count on disconnect — take the higher of in-memory vs already saved
+      // (save_progress may have already written a more recent value via the beacon)
+      if (accounts[name] && players[socket.id].cookies > (accounts[name].cookies || 0)) {
         accounts[name].cookies = players[socket.id].cookies;
         saveAccounts(true); // immediate on disconnect
       }
@@ -685,6 +868,39 @@ setInterval(() => {
   }
 }, 2000);
 
+// ---- Shared wipe-all logic ----
+function doWipeAll() {
+  Object.keys(accounts).forEach(name => {
+    accounts[name].cookies = 0;
+    accounts[name].owned = {};
+  });
+  saveAccounts();
+  Object.keys(players).forEach(sid => {
+    players[sid].cookies = 0;
+    io.to(sid).emit('admin_reset_you');
+  });
+  io.emit('leaderboard', getLeaderboard());
+}
+
+// ---- Daily midnight CST reset ----
+// CST = UTC-6, CDT = UTC-5. We schedule for 06:00 UTC which is midnight CST
+// (and 01:00 CST during CDT — close enough, and avoids DST complexity).
+function scheduleMidnightWipe() {
+  const now = new Date();
+  // Next 06:00 UTC
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0, 0));
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // already past today's 06:00, use tomorrow
+  const msUntil = next - now;
+  console.log(`[Reset] Next daily wipe in ${Math.round(msUntil / 60000)} minutes (at ${next.toUTCString()})`);
+  setTimeout(() => {
+    console.log('[Reset] Running daily midnight CST wipe...');
+    doWipeAll();
+    io.emit('chat', { system: true, msg: '🌙 Daily reset! All cookies and upgrades have been wiped. Good luck!', time: Date.now() });
+    scheduleMidnightWipe(); // schedule the next one
+  }, msUntil);
+}
+scheduleMidnightWipe();
+
 function getPlayerList() {
   return Object.entries(players).map(([id, p]) => ({
     name: p.name, cookies: p.cookies
@@ -712,8 +928,9 @@ function getLeaderboard() {
       entryMap[name].cookies = Math.max(entryMap[name].cookies, p.cookies);
       entryMap[name].cps = p.cps;
       entryMap[name].online = true;
+      entryMap[name].afk = p.afk || false;
     } else {
-      entryMap[name] = { name, cookies: p.cookies, cps: p.cps, online: true };
+      entryMap[name] = { name, cookies: p.cookies, cps: p.cps, online: true, afk: p.afk || false };
     }
   });
 
