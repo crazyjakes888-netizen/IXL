@@ -786,6 +786,14 @@ io.on('connection', (socket) => {
     socket.emit('all_players', Object.keys(joinLog));
   });
 
+  socket.on('set_afk', () => {
+    if (players[socket.id]) players[socket.id].afk = true;
+  });
+
+  socket.on('set_active', () => {
+    if (players[socket.id]) players[socket.id].afk = false;
+  });
+
   socket.on('admin_get_reports_token', () => {
     if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const tok = crypto.randomBytes(16).toString('hex');
@@ -884,8 +892,9 @@ function getLeaderboard() {
       entryMap[name].cookies = Math.max(entryMap[name].cookies, p.cookies);
       entryMap[name].cps = p.cps;
       entryMap[name].online = true;
+      entryMap[name].afk = p.afk || false;
     } else {
-      entryMap[name] = { name, cookies: p.cookies, cps: p.cps, online: true };
+      entryMap[name] = { name, cookies: p.cookies, cps: p.cps, online: true, afk: p.afk || false };
     }
   });
 
