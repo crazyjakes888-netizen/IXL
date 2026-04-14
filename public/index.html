@@ -331,6 +331,8 @@
       align-items: center;
       justify-content: center;
       z-index: 100;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     #join-box {
@@ -354,6 +356,8 @@
       font-size: 1rem;
       margin-bottom: 14px;
       outline: none;
+      user-select: text;
+      -webkit-user-select: text;
     }
     #join-box input:-webkit-autofill,
     #join-box input:-webkit-autofill:hover,
@@ -386,6 +390,7 @@
       cursor: pointer;
       transition: background 0.2s;
       margin-bottom: 8px;
+      touch-action: manipulation;
     }
 
     #join-box button:hover { background: #555; }
