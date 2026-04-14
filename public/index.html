@@ -415,30 +415,6 @@
     .upg-sell-btn:hover:not(:disabled) { background: #7a2222; }
     .upg-sell-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-    /* Power-ups section */
-    #powerups-title {
-      font-size: 0.8rem; color: #ffcc44;
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    #powerups {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px; width: 100%;
-    }
-    .powerup-btn {
-      background: #1a1a10;
-      border: 1px solid #554422;
-      border-radius: 6px; padding: 5px 7px;
-      cursor: pointer; color: #e0e0e0; text-align: left;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .powerup-btn:hover:not(:disabled) { border-color: #ffcc44; background: #2a2a10; }
-    .powerup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .powerup-btn .pu-name { font-weight: bold; font-size: 0.72rem; color: #ffdd88; }
-    .powerup-btn .pu-desc { font-size: 0.61rem; color: #ccaa66; margin-top: 1px; }
-    .powerup-btn .pu-cost { font-size: 0.65rem; color: #fff; margin-top: 2px; }
-    .powerup-btn .pu-timer { font-size: 0.61rem; color: #ffcc44; margin-top: 1px; font-weight: bold; min-height: 12px; }
-
     /* Pay modal */
     #pay-modal-overlay {
       display: none; position: fixed; inset: 0;
@@ -643,7 +619,6 @@
     @media (max-width: 1100px) {
       #right-panel { width: 230px; min-width: 230px; }
       #upgrades { grid-template-columns: repeat(3, 1fr); }
-      #powerups { grid-template-columns: repeat(3, 1fr); }
       #attacks  { grid-template-columns: repeat(3, 1fr); }
     }
 
@@ -674,7 +649,6 @@
       #leaderboard { display: none; }
       #chat-section { flex: 1; min-width: 0; }
       #upgrades { grid-template-columns: repeat(2, 1fr); }
-      #powerups { grid-template-columns: repeat(2, 1fr); }
       #attacks  { grid-template-columns: repeat(2, 1fr); }
       #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
       #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
@@ -768,8 +742,6 @@
     <div id="upgrades-scroll">
       <div id="upgrades-title">Upgrades</div>
       <div id="upgrades"></div>
-      <div id="powerups-title">⚡ Power-Ups</div>
-      <div id="powerups"></div>
       <div id="debuffs-display"></div>
       <div id="attacks-title">⚔️ Attacks</div>
       <div id="attack-target-row">
@@ -865,17 +837,6 @@
     { id: 'infinityclk',name: '♾️ Infinity Click',  desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
   ];
 
-  const POWERUPS = [
-    { id: 'sugarrush',    name: '🍬 Sugar Rush',    desc: '2× click for 60s',          cost: 50000,      clickBoost: 2,   duration: 60000  },
-    { id: 'clickstorm',   name: '👆 Click Storm',   desc: '10× click for 30s',         cost: 200000,     clickBoost: 10,  duration: 30000  },
-    { id: 'cookiefury',   name: '🔥 Cookie Fury',   desc: '5× click for 45s',          cost: 500000,     clickBoost: 5,   duration: 45000  },
-    { id: 'timewarp',     name: '⏰ Time Warp',      desc: '10× click for 20s',         cost: 2000000,    clickBoost: 10,  duration: 20000  },
-    { id: 'clickgod',     name: '✨ Click God',      desc: '50× click for 15s',         cost: 5000000,    clickBoost: 50,  duration: 15000  },
-    { id: 'goldencookie', name: '🌟 Golden Cookie',  desc: '20× click for 15s',         cost: 10000000,   clickBoost: 20,  duration: 15000  },
-    { id: 'bigbang',      name: '💥 Big Bang',       desc: '100× click for 10s',        cost: 50000000,   clickBoost: 100, duration: 10000  },
-    { id: 'omnipotence',  name: '🌌 Omnipotence',    desc: '500× click for 8s',         cost: 500000000,  clickBoost: 500, duration: 8000   },
-  ];
-
   const ATTACKS = [
     { id: 'freeze10',  name: '❄️ Freeze Ray I',   desc: 'Freeze CPS for 10s',  cost: 3000    },
     { id: 'freeze20',  name: '🧊 Freeze Ray II',   desc: 'Freeze CPS for 20s',  cost: 12000   },
@@ -890,7 +851,6 @@
   ];
 
   const activeDebuffs = {}; // { type: clearTimeout }
-  const activePUBoosts = {}; // { puId: { cpsBoost, clickBoost } }
   let cpsMultiplier = 1;
   let clickMultiplier = 1;
 
@@ -904,11 +864,6 @@
   function getSellValue(upg) {
     if (owned[upg.id] <= 0) return 0;
     return Math.floor(0.3 * upg.baseCost * Math.pow(1.15, owned[upg.id] - 1));
-  }
-
-  function rebuildMultipliers() {
-    clickMultiplier = Object.values(activePUBoosts).reduce((acc, b) => acc * (b.clickBoost || 1), 1);
-    // cpsMultiplier intentionally not affected by power-ups (clicks only)
   }
 
   function getClickPower() {
@@ -964,49 +919,6 @@
     });
   }
 
-  function buildPowerups() {
-    const container = document.getElementById('powerups');
-    container.innerHTML = '';
-    POWERUPS.forEach(pu => {
-      const btn = document.createElement('button');
-      btn.className = 'powerup-btn';
-      btn.id = 'pu-' + pu.id;
-      btn.innerHTML = `
-        <div class="pu-name">${pu.name}</div>
-        <div class="pu-desc">${pu.desc}</div>
-        <div class="pu-cost">🍪 ${formatNum(pu.cost)}</div>
-        <div class="pu-timer" id="pu-timer-${pu.id}"></div>
-      `;
-      btn.addEventListener('click', () => {
-        if (cookies < pu.cost || activePUBoosts[pu.id]) return;
-        cookies -= pu.cost;
-        activePUBoosts[pu.id] = { clickBoost: pu.clickBoost || 1 };
-        rebuildMultipliers();
-        btn.disabled = true;
-        let remaining = Math.ceil(pu.duration / 1000);
-        const timerEl = document.getElementById('pu-timer-' + pu.id);
-        if (timerEl) timerEl.textContent = remaining + 's';
-        const iv = setInterval(() => {
-          remaining--;
-          if (timerEl) timerEl.textContent = remaining > 0 ? remaining + 's' : '';
-        }, 1000);
-        setTimeout(() => {
-          clearInterval(iv);
-          delete activePUBoosts[pu.id];
-          rebuildMultipliers();
-          btn.disabled = cookies < pu.cost;
-          if (timerEl) timerEl.textContent = '';
-          updateDisplay();
-          updateButtons();
-        }, pu.duration);
-        updateDisplay();
-        updateButtons();
-        saveProgress();
-      });
-      container.appendChild(btn);
-    });
-  }
-
   function buildAttacks() {
     const container = document.getElementById('attacks');
     container.innerHTML = '';
@@ -1051,11 +963,6 @@
       const btn = document.getElementById('atk-' + atk.id);
       if (!btn) return;
       btn.disabled = cookies < atk.cost;
-    });
-    POWERUPS.forEach(pu => {
-      const btn = document.getElementById('pu-' + pu.id);
-      if (!btn) return;
-      if (!activePUBoosts[pu.id]) btn.disabled = cookies < pu.cost;
     });
   }
 
@@ -2326,7 +2233,6 @@
 
   // ---- Init (before login) ----
   buildUpgrades();
-  buildPowerups();
   buildAttacks();
   updateDisplay();
 </script>
