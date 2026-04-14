@@ -713,6 +713,70 @@
       #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
       #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
     }
+
+    /* ===== LIGHT MODE ===== */
+    body.light { background: #f0f2f5; color: #111; }
+    body.light header { background: #fff; border-bottom-color: #ddd; color: #111; }
+    body.light #admin-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
+    body.light #admin-btn:hover { background: #d8d8d8; }
+    body.light #lb-modal-btn, body.light #vc-btn, body.light #report-btn, body.light #theme-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
+    body.light #lb-modal-btn:hover, body.light #vc-btn:hover:not(.vc-banned), body.light #report-btn:hover, body.light #theme-btn:hover { background: #d8d8d8; }
+    body.light #join-screen { background: #f0f2f5dd; }
+    body.light #join-box { background: #fff; border-color: #ccc; }
+    body.light #join-box h2 { color: #111; }
+    body.light #join-box input { background: #f5f5f5; border-color: #ccc; color: #111; }
+    body.light #join-box button { background: #555; }
+    body.light #join-box button:hover { background: #444; }
+    body.light #cookie-count { color: #111; }
+    body.light #cps-display { color: #555; }
+    body.light #upgrades-title, body.light #attacks-title { color: #666; }
+    body.light .upgrade-btn { background: #fff; border-color: #ddd; color: #111; }
+    body.light .upgrade-btn .upg-desc, body.light .upgrade-btn .upg-owned { color: #666; }
+    body.light .upgrade-btn .upg-cost { color: #111; }
+    body.light .attack-btn { background: #fff5f5; border-color: #ffcccc; color: #111; }
+    body.light .attack-btn:hover:not(:disabled) { border-color: #ff4444; background: #ffe8e8; }
+    body.light .attack-btn .atk-desc, body.light .attack-btn .atk-cost { color: #cc4444; }
+    body.light #attack-target { background: #fff; border-color: #ccc; color: #111; }
+    body.light #right-panel { border-left-color: #ddd; }
+    body.light #leaderboard { background: #fff; border-bottom-color: #ddd; }
+    body.light #leaderboard h3 { color: #111; }
+    body.light #lb-list li { border-bottom-color: #eee; }
+    body.light #lb-list li .lb-name { color: #333; }
+    body.light #lb-list li .lb-score { color: #111; }
+    body.light #lb-list li.me .lb-name { color: #000; }
+    body.light #chat-section h3 { background: #f5f5f5; border-bottom-color: #ddd; color: #111; }
+    body.light #chat-input-row { background: #f5f5f5; border-top-color: #ddd; }
+    body.light #chat-input { background: #fff; border-color: #ddd; color: #111; }
+    body.light #chat-send { background: #555; }
+    body.light #chat-send:hover { background: #444; }
+    body.light #chat-messages::-webkit-scrollbar-thumb { background: #ccc; }
+    body.light .chat-msg.system { color: #888; }
+    body.light #lb-modal { background: #fff; border-color: #ddd; }
+    body.light #lb-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #lb-modal-close { color: #666; }
+    body.light #lb-modal-close:hover { color: #111; }
+    body.light #lb-modal-list li { border-bottom-color: #eee; }
+    body.light #lb-modal-list .lbm-rank { color: #888; }
+    body.light #lb-modal-list .lbm-name { color: #333; }
+    body.light #lb-modal-list .lbm-score { color: #111; }
+    body.light #pay-modal { background: #fff; border-color: #ddd; }
+    body.light #pay-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #pay-modal-close { color: #666; }
+    body.light #pay-modal-close:hover { color: #111; }
+    body.light #pay-target, body.light #pay-amount { background: #fff; border-color: #ddd; color: #111; }
+    body.light #report-modal { background: #fff; border-color: #ddd; }
+    body.light #report-modal-header { border-bottom-color: #eee; color: #111; }
+    body.light #report-modal-close { color: #666; }
+    body.light #report-modal-close:hover { color: #111; }
+    body.light #report-tabs { border-bottom-color: #eee; }
+    body.light .report-tab { color: #666; }
+    body.light .report-tab:hover { color: #111; }
+    body.light .report-tab.active { color: #111; }
+    body.light .report-panel input, body.light .report-panel textarea { background: #f5f5f5; border-color: #ddd; color: #111; }
+    body.light .rp-dropdown { background: #fff; border-color: #ccc; }
+    body.light .rp-option { color: #111; }
+    body.light .rp-option:hover, body.light .rp-option.focused { background: #e8f0ff; color: #111; }
+    body.light .debuff-chip { background: #ffe8e8; border-color: #ff6666; color: #cc2222; }
   </style>
 </head>
 <body>
@@ -732,6 +796,7 @@
     <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
     <button id="vc-btn" title="Voice Chat">🎤 VC</button>
     <button id="report-btn" title="Reports">📋 Report</button>
+    <button id="theme-btn" title="Toggle light/dark mode">☀️</button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
@@ -2468,6 +2533,23 @@
         if (ok) setTimeout(() => overlay.classList.remove('open'), 1800);
       });
     };
+  })();
+
+  // ---- Light / Dark mode toggle ----
+  (function() {
+    const btn = document.getElementById('theme-btn');
+    function applyTheme(light) {
+      document.body.classList.toggle('light', light);
+      btn.textContent = light ? '🌙' : '☀️';
+      btn.title = light ? 'Switch to dark mode' : 'Switch to light mode';
+    }
+    const saved = localStorage.getItem('cc_theme');
+    applyTheme(saved === 'light');
+    btn.addEventListener('click', () => {
+      const isLight = !document.body.classList.contains('light');
+      localStorage.setItem('cc_theme', isLight ? 'light' : 'dark');
+      applyTheme(isLight);
+    });
   })();
 
   // ---- Init (before login) ----
