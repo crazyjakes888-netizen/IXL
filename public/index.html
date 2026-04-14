@@ -458,15 +458,16 @@
       transform: scale(0.93);
     }
 
-    #upgrades-title {
+    #upgrades-title, #click-upgrades-title {
       font-size: 0.8rem;
       color: #aaaaaa;
       text-transform: uppercase;
       letter-spacing: 1px;
       align-self: flex-start;
     }
+    #click-upgrades-title { margin-top: 4px; }
 
-    #upgrades {
+    #upgrades, #click-upgrades {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 5px;
@@ -704,7 +705,7 @@
     /* Chromebook / small laptop (900–1200px) */
     @media (max-width: 1100px) {
       #right-panel { width: 230px; min-width: 230px; }
-      #upgrades { grid-template-columns: repeat(3, 1fr); }
+      #upgrades, #click-upgrades { grid-template-columns: repeat(3, 1fr); }
       #attacks  { grid-template-columns: repeat(3, 1fr); }
     }
 
@@ -734,7 +735,7 @@
       }
       #leaderboard { display: none; }
       #chat-section { flex: 1; min-width: 0; }
-      #upgrades { grid-template-columns: repeat(2, 1fr); }
+      #upgrades, #click-upgrades { grid-template-columns: repeat(2, 1fr); }
       #attacks  { grid-template-columns: repeat(2, 1fr); }
       #cookie-btn { width: 90px; height: 90px; font-size: 2.4rem; }
       #admin-console { width: calc(100vw - 16px); right: 8px; left: 8px; bottom: 20px; }
@@ -755,7 +756,7 @@
     body.light #join-box button:hover { background: #444; }
     body.light #cookie-count { color: #111; }
     body.light #cps-display { color: #555; }
-    body.light #upgrades-title, body.light #attacks-title { color: #666; }
+    body.light #upgrades-title, body.light #click-upgrades-title, body.light #attacks-title { color: #666; }
     body.light .upgrade-btn { background: #fff; border-color: #ddd; color: #111; }
     body.light .upgrade-btn .upg-desc, body.light .upgrade-btn .upg-owned { color: #666; }
     body.light .upgrade-btn .upg-cost { color: #111; }
@@ -928,6 +929,8 @@
     <div id="upgrades-scroll">
       <div id="upgrades-title">Upgrades</div>
       <div id="upgrades"></div>
+      <div id="click-upgrades-title">👆 Click Upgrades</div>
+      <div id="click-upgrades"></div>
       <div id="debuffs-display"></div>
       <div id="attacks-title">⚔️ Attacks</div>
       <div id="attack-target-row">
@@ -974,54 +977,56 @@
   document.addEventListener('touchstart', () => getAudioCtx(), { once: true, passive: true });
   document.addEventListener('click',      () => getAudioCtx(), { once: true, passive: true });
 
-  const UPGRADES = [
-    // ---- Passive CPS ----
-    { id: 'cursor',     name: '🖱️ Cursor',        desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
+  const CPS_UPGRADES = [
     { id: 'grandma',    name: '👵 Grandma',        desc: '+1/sec',            baseCost: 100,      clickPower: 0,    cps: 1 },
     { id: 'farm',       name: '🌾 Farm',           desc: '+5/sec',            baseCost: 500,      clickPower: 0,    cps: 5 },
+    { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec',            baseCost: 4000,     clickPower: 0,    cps: 8 },
     { id: 'mine',       name: '⛏️ Mine',           desc: '+10/sec',           baseCost: 2000,     clickPower: 0,    cps: 10 },
     { id: 'factory',    name: '🏭 Factory',        desc: '+20/sec',           baseCost: 8000,     clickPower: 0,    cps: 20 },
+    { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec',           baseCost: 30000,    clickPower: 0,    cps: 40 },
     { id: 'bank',       name: '🏦 Bank',           desc: '+50/sec',           baseCost: 20000,    clickPower: 0,    cps: 50 },
     { id: 'temple',     name: '⛩️ Temple',         desc: '+100/sec',          baseCost: 75000,    clickPower: 0,    cps: 100 },
+    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec',          baseCost: 150000,   clickPower: 0,    cps: 150 },
     { id: 'wizard',     name: '🧙 Wizard',         desc: '+200/sec',          baseCost: 200000,   clickPower: 0,    cps: 200 },
     { id: 'shipment',   name: '🚀 Shipment',       desc: '+500/sec',          baseCost: 500000,   clickPower: 0,    cps: 500 },
     { id: 'alchemy',    name: '⚗️ Alchemy',        desc: '+1K/sec',           baseCost: 1500000,  clickPower: 0,    cps: 1000 },
     { id: 'portal',     name: '🌀 Portal',         desc: '+5K/sec',           baseCost: 5000000,  clickPower: 0,    cps: 5000 },
+    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+8K/sec',           baseCost: 8000000,  clickPower: 0,    cps: 8000 },
     { id: 'timemachine',name: '⏰ Time Machine',   desc: '+10K/sec',          baseCost: 15000000, clickPower: 0,    cps: 10000 },
+    { id: 'megaportal', name: '🌐 Mega Portal',    desc: '+30K/sec',          baseCost: 4e7,      clickPower: 0,    cps: 30000 },
     { id: 'antimatter', name: '⚛️ Antimatter',     desc: '+50K/sec',          baseCost: 75000000, clickPower: 0,    cps: 50000 },
     { id: 'prism',      name: '🔮 Prism',          desc: '+200K/sec',         baseCost: 3e8,      clickPower: 0,    cps: 200000 },
+    { id: 'quantumcpu', name: '🧬 Quantum CPU',    desc: '+400K/sec',         baseCost: 2e9,      clickPower: 0,    cps: 400000 },
     { id: 'chancemaker',name: '🎲 Chancemaker',    desc: '+1M/sec',           baseCost: 1e9,      clickPower: 0,    cps: 1000000 },
     { id: 'fractal',    name: '🌌 Fractal Engine', desc: '+5M/sec',           baseCost: 5e9,      clickPower: 0,    cps: 5000000 },
-    { id: 'iceshard',   name: '🧊 Ice Shard',      desc: '+8/sec (frost)',    baseCost: 4000,     clickPower: 0,    cps: 8 },
-    { id: 'icecore',    name: '❄️ Ice Core',       desc: '+40/sec (frost)',   baseCost: 30000,    clickPower: 0,    cps: 40 },
-    { id: 'icefortress',name: '💎 Ice Fortress',   desc: '+150/sec (frost)',  baseCost: 150000,   clickPower: 0,    cps: 150 },
-    { id: 'hypermine',  name: '🔩 Hyper Mine',     desc: '+8K/sec',           baseCost: 8000000,  clickPower: 0,    cps: 8000 },
-    { id: 'megaportal', name: '🌐 Mega Portal',    desc: '+30K/sec',          baseCost: 4e7,      clickPower: 0,    cps: 30000 },
-    { id: 'quantumcpu', name: '🧬 Quantum CPU',    desc: '+400K/sec',         baseCost: 2e9,      clickPower: 0,    cps: 400000 },
     { id: 'darkmatter', name: '🖤 Dark Matter',    desc: '+8M/sec',           baseCost: 1.5e10,   clickPower: 0,    cps: 8000000 },
-    { id: 'multiverse', name: '🌌 Multiverse',     desc: '+25M/sec',          baseCost: 7.5e10,   clickPower: 0,    cps: 25000000 },
+    { id: 'multiverse', name: '🪐 Multiverse',     desc: '+25M/sec',          baseCost: 7.5e10,   clickPower: 0,    cps: 25000000 },
     { id: 'cookiegod',  name: '👑 Cookie God',     desc: '+100M/sec',         baseCost: 5e11,     clickPower: 0,    cps: 100000000 },
-
-    // ---- Click Power (beginner → endgame) ----
-    { id: 'doubletap',  name: '✌️ Double Tap',     desc: '+2 click',          baseCost: 50,       clickPower: 2,    cps: 0 },
-    { id: 'stronghand', name: '💪 Strong Hand',    desc: '+4 click',          baseCost: 200,      clickPower: 4,    cps: 0 },
-    { id: 'quickfinger',name: '☝️ Quick Finger',   desc: '+8 click',          baseCost: 750,      clickPower: 8,    cps: 0 },
-    { id: 'powerclick', name: '🔥 Power Click',    desc: '+15 click',         baseCost: 2500,     clickPower: 15,   cps: 0 },
-    { id: 'megaclick',  name: '👆 Mega Click',     desc: '+30 click',         baseCost: 8000,     clickPower: 30,   cps: 0 },
-    { id: 'speedclick', name: '💨 Speed Click',    desc: '+60 click',         baseCost: 25000,    clickPower: 60,   cps: 0 },
-    { id: 'ultraclick', name: '⚡ Ultra Click',    desc: '+120 click',        baseCost: 80000,    clickPower: 120,  cps: 0 },
-    { id: 'superclick', name: '🌟 Super Click',    desc: '+250 click',        baseCost: 250000,   clickPower: 250,  cps: 0 },
-    { id: 'godclick',   name: '✨ God Click',      desc: '+500 click',        baseCost: 750000,   clickPower: 500,  cps: 0 },
-    { id: 'omegaclick', name: '🌀 Omega Click',    desc: '+1K click',         baseCost: 2500000,  clickPower: 1000, cps: 0 },
-    { id: 'omnclick',   name: '💥 Omni Click',     desc: '+2.5K click',       baseCost: 8000000,  clickPower: 2500, cps: 0 },
-    { id: 'blastclick', name: '💣 Blast Click',    desc: '+6K click',         baseCost: 30000000, clickPower: 6000, cps: 0 },
-    { id: 'hyperclk',   name: '🚀 Hyper Click',    desc: '+15K click',        baseCost: 1e8,      clickPower: 15000, cps: 0 },
-    { id: 'cosmicclk',  name: '🌌 Cosmic Click',   desc: '+40K click',        baseCost: 4e8,      clickPower: 40000, cps: 0 },
-    { id: 'godsmash',   name: '⚡ God Smash',      desc: '+100K click',       baseCost: 1.5e9,    clickPower: 100000, cps: 0 },
-    { id: 'quantumclk', name: '⚛️ Quantum Click',  desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
-    { id: 'divineclk',  name: '👼 Divine Click',   desc: '+1M click',         baseCost: 13e9,     clickPower: 1000000, cps: 0 },
-    { id: 'infinityclk',name: '♾️ Infinity Click',  desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
   ];
+
+  const CLICK_UPGRADES = [
+    { id: 'cursor',     name: '🖱️ Cursor',         desc: '+1 click',          baseCost: 15,       clickPower: 1,    cps: 0 },
+    { id: 'doubletap',  name: '✌️ Double Tap',      desc: '+2 click',          baseCost: 50,       clickPower: 2,    cps: 0 },
+    { id: 'stronghand', name: '💪 Strong Hand',     desc: '+4 click',          baseCost: 200,      clickPower: 4,    cps: 0 },
+    { id: 'quickfinger',name: '☝️ Quick Finger',    desc: '+8 click',          baseCost: 750,      clickPower: 8,    cps: 0 },
+    { id: 'powerclick', name: '🔥 Power Click',     desc: '+15 click',         baseCost: 2500,     clickPower: 15,   cps: 0 },
+    { id: 'megaclick',  name: '👊 Mega Click',      desc: '+30 click',         baseCost: 8000,     clickPower: 30,   cps: 0 },
+    { id: 'speedclick', name: '💨 Speed Click',     desc: '+60 click',         baseCost: 25000,    clickPower: 60,   cps: 0 },
+    { id: 'ultraclick', name: '⚡ Ultra Click',     desc: '+120 click',        baseCost: 80000,    clickPower: 120,  cps: 0 },
+    { id: 'superclick', name: '🌟 Super Click',     desc: '+250 click',        baseCost: 250000,   clickPower: 250,  cps: 0 },
+    { id: 'godclick',   name: '✨ God Click',       desc: '+500 click',        baseCost: 750000,   clickPower: 500,  cps: 0 },
+    { id: 'omegaclick', name: '🔄 Omega Click',     desc: '+1K click',         baseCost: 2500000,  clickPower: 1000, cps: 0 },
+    { id: 'omnclick',   name: '💥 Omni Click',      desc: '+2.5K click',       baseCost: 8000000,  clickPower: 2500, cps: 0 },
+    { id: 'blastclick', name: '💣 Blast Click',     desc: '+6K click',         baseCost: 30000000, clickPower: 6000, cps: 0 },
+    { id: 'hyperclk',   name: '🛸 Hyper Click',     desc: '+15K click',        baseCost: 1e8,      clickPower: 15000, cps: 0 },
+    { id: 'cosmicclk',  name: '☄️ Cosmic Click',    desc: '+40K click',        baseCost: 4e8,      clickPower: 40000, cps: 0 },
+    { id: 'godsmash',   name: '🔱 God Smash',       desc: '+100K click',       baseCost: 1.5e9,    clickPower: 100000, cps: 0 },
+    { id: 'quantumclk', name: '🔬 Quantum Click',   desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
+    { id: 'divineclk',  name: '👼 Divine Click',    desc: '+1M click',         baseCost: 13e9,     clickPower: 1000000, cps: 0 },
+    { id: 'infinityclk',name: '♾️ Infinity Click',   desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
+  ];
+
+  const UPGRADES = [...CPS_UPGRADES, ...CLICK_UPGRADES];
 
   const ATTACKS = [
     { id: 'freeze10',  name: '❄️ Freeze Ray I',   desc: 'Freeze CPS for 10s',  cost: 3000    },
@@ -1069,11 +1074,10 @@
   }
 
   // ---- UI ----
-  // Build upgrade buttons once, then only update state
-  function buildUpgrades() {
-    const container = document.getElementById('upgrades');
+  function buildUpgradeList(list, containerId) {
+    const container = document.getElementById(containerId);
     container.innerHTML = '';
-    UPGRADES.forEach(upg => {
+    list.forEach(upg => {
       const card = document.createElement('div');
       card.className = 'upgrade-btn';
       card.id = 'upg-' + upg.id;
@@ -1103,6 +1107,11 @@
       });
       container.appendChild(card);
     });
+  }
+
+  function buildUpgrades() {
+    buildUpgradeList(CPS_UPGRADES, 'upgrades');
+    buildUpgradeList(CLICK_UPGRADES, 'click-upgrades');
   }
 
   function buildAttacks() {
