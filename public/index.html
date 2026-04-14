@@ -71,6 +71,14 @@
     #vc-btn.vc-banned { background: #5c1a1a; border-color: #9a3a3a; color: #ff9999; cursor: not-allowed; font-size: 0.72rem; }
     #report-btn { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem; }
     #report-btn:hover { background: #444; }
+    #theme-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #111; border: 2px solid #888;
+      cursor: pointer; padding: 0; flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #theme-btn:hover { border-color: #bbb; }
+    body.light #theme-btn { background: #fff; border-color: #888; }
 
     /* Report Modal */
     #report-modal-overlay {
@@ -719,8 +727,8 @@
     body.light header { background: #fff; border-bottom-color: #ddd; color: #111; }
     body.light #admin-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
     body.light #admin-btn:hover { background: #d8d8d8; }
-    body.light #lb-modal-btn, body.light #vc-btn, body.light #report-btn, body.light #theme-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
-    body.light #lb-modal-btn:hover, body.light #vc-btn:hover:not(.vc-banned), body.light #report-btn:hover, body.light #theme-btn:hover { background: #d8d8d8; }
+    body.light #lb-modal-btn, body.light #vc-btn, body.light #report-btn { background: #e8e8e8; color: #222; border-color: #ccc; }
+    body.light #lb-modal-btn:hover, body.light #vc-btn:hover:not(.vc-banned), body.light #report-btn:hover { background: #d8d8d8; }
     body.light #join-screen { background: #f0f2f5dd; }
     body.light #join-box { background: #fff; border-color: #ccc; }
     body.light #join-box h2 { color: #111; }
@@ -796,7 +804,7 @@
     <button id="lb-modal-btn" title="Full Leaderboard">🏆 Leaderboard</button>
     <button id="vc-btn" title="Voice Chat">🎤 VC</button>
     <button id="report-btn" title="Reports">📋 Report</button>
-    <button id="theme-btn" title="Toggle light/dark mode">☀️</button>
+    <button id="theme-btn" title="Toggle light/dark mode"></button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
@@ -2540,11 +2548,8 @@
     const btn = document.getElementById('theme-btn');
     function applyTheme(light) {
       document.body.classList.toggle('light', light);
-      btn.textContent = light ? '🌙' : '☀️';
-      btn.title = light ? 'Switch to dark mode' : 'Switch to light mode';
     }
-    const saved = localStorage.getItem('cc_theme');
-    applyTheme(saved === 'light');
+    applyTheme(localStorage.getItem('cc_theme') === 'light');
     btn.addEventListener('click', () => {
       const isLight = !document.body.classList.contains('light');
       localStorage.setItem('cc_theme', isLight ? 'light' : 'dark');
