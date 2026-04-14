@@ -421,6 +421,9 @@
       cursor: pointer;
       font-size: 3rem;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
       transition: transform 0.08s, box-shadow 0.08s;
       box-shadow: 0 0 20px #33333355;
     }
@@ -826,7 +829,7 @@
       <div id="cookie-count">0 cookies</div>
       <div id="cps-display">0 cookies/sec</div>
       <div id="cookie-row">
-        <button id="cookie-btn" title="Click me!">🍪</button>
+        <button id="cookie-btn" title="Click me!" draggable="false"><img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/svg/1f36a.svg" alt="🍪" draggable="false" style="width:60%;height:60%;pointer-events:none;user-select:none;-webkit-user-select:none;" /></button>
         <button id="pay-btn" title="Pay a player">💰<br><span style="font-size:0.7rem;">Pay</span></button>
       </div>
     </div>
