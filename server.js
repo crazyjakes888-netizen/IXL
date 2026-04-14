@@ -43,6 +43,15 @@ app.delete('/api/reports/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Join log — all players who have ever joined, never wiped
+app.get('/api/joinlog', (req, res) => {
+  const tok = req.query.token;
+  if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
+  const entries = Object.entries(joinLog).map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  res.json(entries);
+});
+
 app.patch('/api/reports/:id/read', (req, res) => {
   const tok = req.query.token;
   if (!tok || !reportTokens[tok] || Date.now() > reportTokens[tok]) return res.status(401).json({ error: 'Unauthorized' });
@@ -83,6 +92,23 @@ function saveAccounts() {
 }
 function hashPw(pw) {
   return crypto.createHash('sha256').update(String(pw)).digest('hex');
+}
+
+// ---- Player join log (never wiped by daily reset) ----
+const JOINLOG_FILE = path.join(DATA_DIR, 'joinlog.json');
+let joinLog = {};  // username -> { firstSeen, lastSeen, joinCount }
+try { joinLog = JSON.parse(fs.readFileSync(JOINLOG_FILE, 'utf8')); } catch(e) {}
+function saveJoinLog() { fs.writeFileSync(JOINLOG_FILE, JSON.stringify(joinLog)); }
+
+function recordJoin(name) {
+  const now = Date.now();
+  if (!joinLog[name]) {
+    joinLog[name] = { firstSeen: now, lastSeen: now, joinCount: 1 };
+  } else {
+    joinLog[name].lastSeen = now;
+    joinLog[name].joinCount = (joinLog[name].joinCount || 0) + 1;
+  }
+  saveJoinLog();
 }
 
 // ---- Reports ----
@@ -260,6 +286,7 @@ io.on('connection', (socket) => {
     const isRejoining = !!recentlyLeft[safeName];
     // Don't delete — keep suppressing until the 30s timer expires naturally
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, lastAttack: 0, ip };
+    recordJoin(safeName);
 
     socket.emit('joined', { id: socket.id, name: safeName });
     io.emit('leaderboard', getLeaderboard());
@@ -760,6 +787,10 @@ io.on('connection', (socket) => {
     saveReports();
     socket.emit('report_result', { ok: true });
     admins.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
+  });
+
+  socket.on('get_all_players', () => {
+    socket.emit('all_players', Object.keys(joinLog));
   });
 
   socket.on('admin_get_reports_token', () => {

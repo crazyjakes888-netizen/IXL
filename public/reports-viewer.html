@@ -104,18 +104,26 @@
   <button class="tab-btn" data-filter="player">🚨 Player <span class="badge" id="badge-player"></span></button>
   <button class="tab-btn" data-filter="bug">🐛 Bug <span class="badge" id="badge-bug"></span></button>
   <button class="tab-btn" data-filter="suggestion">💡 Suggestion <span class="badge" id="badge-suggestion"></span></button>
+  <button class="tab-btn" data-filter="joinlog">👥 Players</button>
 </div>
 
 <div id="container">
   <div id="error-msg">⛔ Access denied or session expired. Please use <code>/reports</code> in the admin console to get a fresh link.</div>
   <div id="empty-msg" style="display:none;">No reports yet.</div>
   <div id="report-list"></div>
+  <div id="joinlog-panel" style="display:none;">
+    <div id="jl-search-row" style="padding:0 0 14px;">
+      <input id="jl-search" type="text" placeholder="Search name..." style="width:100%;max-width:320px;padding:7px 10px;background:#111;border:1px solid #444;border-radius:6px;color:#e0e0e0;font-size:0.85rem;" />
+    </div>
+    <div id="jl-list"></div>
+  </div>
 </div>
 
 <script>
   const params = new URLSearchParams(location.search);
   const token = params.get('token') || '';
   let allReports = [];
+  let allJoinLog = [];
   let currentFilter = 'all';
 
   function formatTime(ts) {
@@ -138,6 +146,11 @@
   }
 
   function render() {
+    const isJoinlog = currentFilter === 'joinlog';
+    document.getElementById('report-list').style.display   = isJoinlog ? 'none' : '';
+    document.getElementById('joinlog-panel').style.display = isJoinlog ? '' : 'none';
+    if (isJoinlog) { renderJoinLog(); return; }
+
     const list = document.getElementById('report-list');
     list.innerHTML = '';
     const filtered = currentFilter === 'all' ? allReports : allReports.filter(r => r.type === currentFilter);
@@ -175,20 +188,45 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function renderJoinLog(q) {
+    const search = (q !== undefined ? q : document.getElementById('jl-search').value).toLowerCase();
+    const entries = search ? allJoinLog.filter(e => e.name.toLowerCase().includes(search)) : allJoinLog;
+    const el = document.getElementById('jl-list');
+    el.innerHTML = '';
+    if (!entries.length) { el.innerHTML = '<div style="color:#666;padding:20px 0;">No players found.</div>'; return; }
+    entries.forEach(e => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #222;font-size:0.85rem;flex-wrap:wrap;';
+      row.innerHTML = `
+        <span style="color:#fff;font-weight:bold;min-width:140px;">${esc(e.name)}</span>
+        <span style="color:#888;">First seen: ${formatTime(e.firstSeen)}</span>
+        <span style="color:#888;">Last seen: ${formatTime(e.lastSeen)}</span>
+        <span style="color:#aaa;">Joins: ${e.joinCount || 1}</span>
+      `;
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('jl-search').addEventListener('input', e => renderJoinLog(e.target.value));
+
   async function loadReports() {
     try {
-      const res = await fetch('/api/reports?token=' + encodeURIComponent(token));
-      if (res.status === 401) {
+      const [rRes, jRes] = await Promise.all([
+        fetch('/api/reports?token='  + encodeURIComponent(token)),
+        fetch('/api/joinlog?token=' + encodeURIComponent(token))
+      ]);
+      if (rRes.status === 401) {
         document.getElementById('error-msg').style.display = '';
         document.getElementById('report-list').innerHTML = '';
         document.getElementById('status').textContent = 'Access denied';
         return;
       }
       document.getElementById('error-msg').style.display = 'none';
-      allReports = await res.json();
+      allReports = await rRes.json();
+      if (jRes.ok) allJoinLog = await jRes.json();
       updateBadges();
       render();
-      document.getElementById('status').textContent = `${allReports.length} report${allReports.length !== 1 ? 's' : ''} · last refreshed ${new Date().toLocaleTimeString()}`;
+      document.getElementById('status').textContent = `${allReports.length} report${allReports.length !== 1 ? 's' : ''} · ${allJoinLog.length} players · refreshed ${new Date().toLocaleTimeString()}`;
     } catch(e) {
       document.getElementById('status').textContent = 'Error loading reports';
     }
