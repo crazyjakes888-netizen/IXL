@@ -398,19 +398,12 @@ io.on('connection', (socket) => {
 
   // Attack
   const ATTACK_COOLDOWN_MS = 15000; // 15 seconds between attacks
-  const ATTACK_MIN_CPS = 1000;       // must earn 1K/sec to attack
   socket.on('attack', ({ attackId, targetName }) => {
     if (!players[socket.id]) return;
     const COSTS = { freeze10: 3000, freeze20: 12000, freeze30: 35000, curse: 15000, virus: 30000, drain: 50000, timetheft: 200000, steal10k: 10000, steal100k: 100000, steal1m: 1000000 };
     const cost = COSTS[attackId];
     if (!cost) return;
     if (players[socket.id].cookies < cost) return;
-
-    // CPS requirement
-    if (players[socket.id].cps < ATTACK_MIN_CPS) {
-      socket.emit('attack_error', { msg: '⚠️ You need at least 1K cookies/sec to attack!', refund: cost });
-      return;
-    }
 
     // Cooldown check
     const now = Date.now();
