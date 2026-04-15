@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Lightning Cam</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      font-family: -apple-system, sans-serif;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    #video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    #canvas { display: none; }
+
+    /* Flash overlay when lightning detected */
+    #flash-overlay {
+      position: fixed;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.05s ease;
+    }
+
+    #ui {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      pointer-events: none;
+    }
+
+    #top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: all;
+    }
+
+    #status-pill {
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #888;
+      flex-shrink: 0;
+    }
+    #dot.active { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+    #dot.detected { background: #facc15; box-shadow: 0 0 8px #facc15; }
+
+    #capture-count {
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+
+    #sensitivity-wrap {
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      border-radius: 16px;
+      padding: 12px 16px;
+      pointer-events: all;
+      width: 200px;
+    }
+
+    #sensitivity-wrap label {
+      font-size: 12px;
+      color: #aaa;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #facc15;
+    }
+
+    #bottom-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: all;
+    }
+
+    #start-btn {
+      background: #facc15;
+      color: #000;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 40px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+    }
+
+    #start-btn:active { opacity: 0.8; }
+    #start-btn.stop { background: #f87171; color: #fff; }
+
+    #gallery {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      max-width: 100vw;
+      padding: 4px 0;
+      scrollbar-width: none;
+    }
+    #gallery::-webkit-scrollbar { display: none; }
+
+    .thumb-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .thumb {
+      width: 72px; height: 72px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2px solid #facc15;
+      cursor: pointer;
+      display: block;
+    }
+
+    .thumb-time {
+      position: absolute;
+      bottom: 4px; left: 0; right: 0;
+      text-align: center;
+      font-size: 9px;
+      color: #fff;
+      text-shadow: 0 1px 3px #000;
+    }
+
+    /* Full-screen preview */
+    #preview-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 50;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    #preview-modal.open { display: flex; }
+
+    #preview-img {
+      max-width: 92vw;
+      max-height: 72vh;
+      border-radius: 12px;
+      object-fit: contain;
+    }
+
+    #preview-actions {
+      display: flex;
+      gap: 16px;
+    }
+
+    .modal-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .modal-btn.primary {
+      background: #facc15;
+      color: #000;
+      border-color: transparent;
+      font-weight: 700;
+    }
+
+    #lightning-badge {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: 80px;
+      z-index: 30;
+      pointer-events: none;
+      transition: transform 0.1s ease, opacity 0.3s ease 0.2s;
+      opacity: 0;
+    }
+    #lightning-badge.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+<div id="flash-overlay"></div>
+<div id="lightning-badge">⚡</div>
+
+<div id="ui">
+  <div id="top-bar">
+    <div id="status-pill">
+      <div id="dot"></div>
+      <span id="status-text">Tap Start to begin</span>
+    </div>
+    <div id="capture-count">0 captured</div>
+  </div>
+
+  <div id="sensitivity-wrap">
+    <label>Sensitivity: <span id="sens-val">medium</span></label>
+    <input type="range" id="sensitivity" min="1" max="5" value="3" step="1" />
+  </div>
+
+  <div id="bottom-bar">
+    <div id="gallery"></div>
+    <button id="start-btn" onclick="toggleDetection()">Start Detecting</button>
+  </div>
+</div>
+
+<div id="preview-modal" onclick="closePreview(event)">
+  <img id="preview-img" src="" alt="Captured lightning" />
+  <div id="preview-actions">
+    <button class="modal-btn" onclick="closePreview()">Close</button>
+    <button class="modal-btn primary" id="save-btn" onclick="savePhoto()">Save Photo</button>
+  </div>
+</div>
+
+<script>
+  const video       = document.getElementById('video');
+  const canvas      = document.getElementById('canvas');
+  const ctx         = canvas.getContext('2d', { willReadFrequently: true });
+  const dot         = document.getElementById('dot');
+  const statusText  = document.getElementById('status-text');
+  const countEl     = document.getElementById('capture-count');
+  const gallery     = document.getElementById('gallery');
+  const startBtn    = document.getElementById('start-btn');
+  const flashOverlay= document.getElementById('flash-overlay');
+  const badge       = document.getElementById('lightning-badge');
+  const sensSlider  = document.getElementById('sensitivity');
+  const sensVal     = document.getElementById('sens-val');
+
+  let running       = false;
+  let animFrame     = null;
+  let lastBrightness= null;
+  let captureCount  = 0;
+  let cooldown      = false;
+  let previewUrl    = null;
+
+  // Sensitivity: how much brightness jump = lightning
+  const SENS_LABELS = ['very low', 'low', 'medium', 'high', 'very high'];
+  // Thresholds — higher sensitivity = smaller jump needed
+  const THRESHOLDS  = [60, 45, 30, 20, 12];
+
+  sensSlider.addEventListener('input', () => {
+    sensVal.textContent = SENS_LABELS[sensSlider.value - 1];
+  });
+
+  async function toggleDetection() {
+    if (running) {
+      stopDetection();
+    } else {
+      await startDetection();
+    }
+  }
+
+  async function startDetection() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' }, // rear camera
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      running = true;
+      startBtn.textContent = 'Stop';
+      startBtn.classList.add('stop');
+      dot.classList.add('active');
+      statusText.textContent = 'Watching for lightning...';
+      lastBrightness = null;
+      loop();
+    } catch (err) {
+      statusText.textContent = 'Camera access denied';
+      console.error(err);
+    }
+  }
+
+  function stopDetection() {
+    running = false;
+    cancelAnimationFrame(animFrame);
+    const stream = video.srcObject;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+    dot.classList.remove('active', 'detected');
+    startBtn.textContent = 'Start Detecting';
+    startBtn.classList.remove('stop');
+    statusText.textContent = 'Stopped';
+  }
+
+  function getAvgBrightness() {
+    const w = 160, h = 90; // small sample for speed
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      // Perceived luminance
+      sum += data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+    }
+    return sum / (w * h);
+  }
+
+  function loop() {
+    if (!running) return;
+    animFrame = requestAnimationFrame(loop);
+
+    if (!video.videoWidth) return;
+
+    const brightness = getAvgBrightness();
+
+    if (lastBrightness !== null && !cooldown) {
+      const delta = brightness - lastBrightness;
+      const threshold = THRESHOLDS[sensSlider.value - 1];
+
+      if (delta > threshold) {
+        onLightningDetected();
+      }
+    }
+
+    lastBrightness = brightness;
+  }
+
+  function onLightningDetected() {
+    cooldown = true;
+    dot.classList.add('detected');
+    statusText.textContent = 'Lightning! Capturing...';
+
+    // Capture full-res frame
+    captureFrame();
+
+    // Visual feedback
+    flashOverlay.style.opacity = '0.6';
+    badge.classList.add('show');
+    setTimeout(() => {
+      flashOverlay.style.opacity = '0';
+      badge.classList.remove('show');
+      dot.classList.remove('detected');
+      statusText.textContent = 'Watching for lightning...';
+      // cooldown prevents duplicate triggers from same flash
+      setTimeout(() => { cooldown = false; }, 1500);
+    }, 300);
+  }
+
+  function captureFrame() {
+    // Capture at full video resolution
+    canvas.width  = video.videoWidth  || 1920;
+    canvas.height = video.videoHeight || 1080;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    captureCount++;
+    countEl.textContent = captureCount + ' captured';
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    // Add to gallery
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+
+    const img = document.createElement('img');
+    img.className = 'thumb';
+    img.src = dataUrl;
+    img.onclick = () => openPreview(dataUrl);
+
+    const label = document.createElement('div');
+    label.className = 'thumb-time';
+    label.textContent = timeStr;
+
+    wrap.appendChild(img);
+    wrap.appendChild(label);
+    gallery.prepend(wrap);
+  }
+
+  function openPreview(url) {
+    previewUrl = url;
+    document.getElementById('preview-img').src = url;
+    document.getElementById('preview-modal').classList.add('open');
+  }
+
+  function closePreview(e) {
+    if (!e || e.target === document.getElementById('preview-modal')) {
+      document.getElementById('preview-modal').classList.remove('open');
+    }
+  }
+
+  function savePhoto() {
+    if (!previewUrl) return;
+    const a = document.createElement('a');
+    a.href = previewUrl;
+    a.download = 'lightning-' + Date.now() + '.jpg';
+    a.click();
+  }
+</script>
+</body>
+</html>
