@@ -1858,6 +1858,60 @@
       });
     });
 
+    socket.on('train', () => {
+      const ctx = getAudioCtx();
+      ctx.resume().then(() => {
+        const now = ctx.currentTime;
+        const dur = 3.2;
+
+        // Bass boost filter — heavy shelf at 120 Hz
+        const bass = ctx.createBiquadFilter();
+        bass.type = 'lowshelf';
+        bass.frequency.value = 120;
+        bass.gain.value = 22;
+
+        // Master gain — LOUD
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(1.4, now + 0.04); // instant BLAST
+        master.gain.setValueAtTime(1.4, now + dur - 0.3);
+        master.gain.linearRampToValueAtTime(0, now + dur);
+
+        bass.connect(master);
+        master.connect(ctx.destination);
+
+        // Classic Nathan K5LA train horn chord: Bb2, Eb3, F3, Bb3, Db4
+        // Dropped an octave for extra bass-boost comedy
+        [58, 77, 87, 116, 138].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = i < 2 ? 'sawtooth' : 'square'; // low freqs = sawtooth, highs = square
+          osc.frequency.setValueAtTime(freq, now);
+          // Slight pitch swell like a real air horn pressurizing
+          osc.frequency.linearRampToValueAtTime(freq * 1.015, now + 0.08);
+          osc.frequency.setValueAtTime(freq * 1.015, now + dur - 0.4);
+          osc.frequency.linearRampToValueAtTime(freq * 0.97, now + dur); // deflate at end
+          const g = ctx.createGain();
+          g.gain.value = i < 2 ? 1.0 : 0.6; // bass freqs louder
+          osc.connect(g);
+          g.connect(bass);
+          osc.start(now);
+          osc.stop(now + dur);
+        });
+
+        // Sub-bass rumble (train on tracks)
+        const rumble = ctx.createOscillator();
+        rumble.type = 'sawtooth';
+        rumble.frequency.setValueAtTime(28, now);
+        rumble.frequency.linearRampToValueAtTime(32, now + dur);
+        const rumbleGain = ctx.createGain();
+        rumbleGain.gain.value = 1.2;
+        rumble.connect(rumbleGain);
+        rumbleGain.connect(bass);
+        rumble.start(now);
+        rumble.stop(now + dur);
+      });
+    });
+
     socket.on('fah', () => {
       // FAH: sharp, loud air-horn burst (synthesized)
       const ctx = getAudioCtx();
@@ -2193,6 +2247,7 @@
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
+      adminLog('/train (name)                  — CHOO CHOO (bass-boosted train horn)', 'alog-warn');
       adminLog('/fah (name)                    — blast a FAH air-horn at a player', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
@@ -2291,6 +2346,9 @@
     } else if (cmd === '/fah') {
       if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
       socket.emit('admin_fah', parts.slice(1).join(' '));
+    } else if (cmd === '/train') {
+      if (!parts[1]) { adminLog('Usage: /train (name)', 'alog-err'); return; }
+      socket.emit('admin_train', parts.slice(1).join(' '));
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];
@@ -2325,6 +2383,7 @@
       adminLog('/timeout (name) (sec)               — temp mute', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang', 'alog-warn');
       adminLog('/foghorn (name)                     — blast a foghorn', 'alog-warn');
+      adminLog('/train (name)                       — CHOO CHOO (bass-boosted train horn)', 'alog-warn');
       adminLog('/fah (name)                         — blast a FAH air-horn', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)            — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                     — remove VC ban', 'alog-warn');
@@ -2350,6 +2409,9 @@
     } else if (cmd === '/fah') {
       if (!parts[1]) { adminLog('Usage: /fah (name)', 'alog-err'); return; }
       socket.emit('admin_fah', parts.slice(1).join(' '));
+    } else if (cmd === '/train') {
+      if (!parts[1]) { adminLog('Usage: /train (name)', 'alog-err'); return; }
+      socket.emit('admin_train', parts.slice(1).join(' '));
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];
