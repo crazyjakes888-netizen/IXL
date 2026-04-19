@@ -949,4 +949,16 @@ function getLeaderboard() {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`IXL Math running at http://localhost:${PORT}`);
+
+  // Self-ping every 14 minutes to prevent Render free tier sleep
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    setInterval(() => {
+      require('http').get(RENDER_URL + '/ping', () => {}).on('error', () => {});
+    }, 14 * 60 * 1000);
+    console.log(`[KeepAlive] Pinging ${RENDER_URL}/ping every 14 minutes`);
+  }
 });
+
+// Health check endpoint for keep-alive ping
+app.get('/ping', (req, res) => res.sendStatus(200));
