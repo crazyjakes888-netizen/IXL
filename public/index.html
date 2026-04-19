@@ -1788,10 +1788,13 @@
     });
 
     socket.on('flashbang', ({ volume } = {}) => {
-      // Flashbang: white blinding flash with grenade emoji
+      // Flashbang: white blinding flash with Skibidi Toilet in the middle
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:25vw;transition:opacity 1.5s;';
-      overlay.textContent = '💣';
+      overlay.style.cssText = 'position:fixed;inset:0;background:#ffffff;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;transition:opacity 1.5s;';
+      const img = document.createElement('img');
+      img.src = '/skibidi.jpg';
+      img.style.cssText = 'width:40vmin;height:40vmin;object-fit:cover;border-radius:50%;box-shadow:0 0 60px 20px rgba(255,255,255,0.8);';
+      overlay.appendChild(img);
       document.body.appendChild(overlay);
       // Fade out slowly like a real flashbang
       requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
