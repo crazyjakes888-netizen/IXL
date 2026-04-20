@@ -831,10 +831,8 @@
     <button id="theme-btn" title="Toggle light/dark mode"></button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <button id="delete-account-btn" title="Delete my account" style="background:#5a1a1a;border:1px solid #aa3333;color:#ff8888;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">🗑 Delete Account</button>
-    <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
-  </div>
+  <button id="delete-account-btn" title="Delete my account" style="position:absolute;right:130px;top:50%;transform:translateY(-50%);background:#5a1a1a;border:1px solid #aa3333;color:#ff8888;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">🗑 Delete</button>
+  <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
 <!-- Pay Modal -->
@@ -1045,6 +1043,7 @@
     { id: 'quantumclk', name: '🔬 Quantum Click',   desc: '+300K click',       baseCost: 8e9,      clickPower: 300000, cps: 0 },
     { id: 'divineclk',  name: '👼 Divine Click',    desc: '+1M click',         baseCost: 13e9,     clickPower: 1000000, cps: 0 },
     { id: 'infinityclk',name: '♾️ Infinity Click',   desc: '+5M click',         baseCost: 5e10,     clickPower: 5000000, cps: 0 },
+    { id: 'galaxyclk',  name: '🌌 Galaxy Click',    desc: '+25M click',        baseCost: 5e12,     clickPower: 25000000, cps: 0 },
   ];
 
   const UPGRADES = [...CPS_UPGRADES, ...CLICK_UPGRADES];
@@ -1809,6 +1808,7 @@
       const img = document.createElement('img');
       img.src = '/skibidi.jpg';
       img.style.cssText = 'width:40vmin;height:40vmin;object-fit:cover;border-radius:50%;box-shadow:0 0 60px 20px rgba(255,255,255,0.8);';
+      img.onerror = () => { img.style.display='none'; const fb=document.createElement('div'); fb.style.cssText='font-size:20vmin;'; fb.textContent='💣'; overlay.appendChild(fb); };
       overlay.appendChild(img);
       document.body.appendChild(overlay);
       // Fade out slowly like a real flashbang
@@ -2555,9 +2555,9 @@
     delOverlay.addEventListener('click', e => { if (e.target === delOverlay) delOverlay.style.display = 'none'; });
     document.getElementById('del-account-confirm').addEventListener('click', () => {
       delOverlay.style.display = 'none';
-      socket.emit('delete_own_account');
+      socket0.emit('delete_own_account');
     });
-    socket.on('account_deleted', () => {
+    socket0.on('account_deleted', () => {
       alert('Your account has been deleted.');
       location.reload();
     });
