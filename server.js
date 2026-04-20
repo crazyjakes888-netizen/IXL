@@ -824,6 +824,16 @@ io.on('connection', (socket) => {
     socket.emit('all_players', Object.keys(joinLog));
   });
 
+  socket.on('delete_own_account', () => {
+    const name = (players[socket.id] && players[socket.id].name) || socket._authedName;
+    if (!name || !accounts[name]) return;
+    delete accounts[name];
+    saveAccounts(true);
+    if (players[socket.id]) delete players[socket.id];
+    socket.emit('account_deleted');
+    socket.disconnect(true);
+  });
+
   socket.on('set_afk', () => {
     if (players[socket.id]) players[socket.id].afk = true;
   });

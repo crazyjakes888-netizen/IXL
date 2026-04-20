@@ -831,7 +831,10 @@
     <button id="theme-btn" title="Toggle light/dark mode"></button>
   </div>
   🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
-  <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button id="delete-account-btn" title="Delete my account" style="background:#5a1a1a;border:1px solid #aa3333;color:#ff8888;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">🗑 Delete Account</button>
+    <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
+  </div>
 </header>
 
 <!-- Pay Modal -->
@@ -859,6 +862,19 @@
     </div>
     <div id="lb-modal-body">
       <ul id="lb-modal-list"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Account Confirm Modal -->
+<div id="del-account-overlay" style="display:none;position:fixed;inset:0;background:#000000aa;z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e1e1e;border:2px solid #aa3333;border-radius:12px;padding:32px;max-width:360px;width:90%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+    <div style="color:#fff;font-size:1.1rem;font-weight:bold;margin-bottom:8px;">Delete your account?</div>
+    <div style="color:#aaa;font-size:0.88rem;margin-bottom:20px;">This will permanently delete your account and all your cookies. There is no undo.</div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="del-account-confirm" style="background:#8b1a1a;border:1px solid #cc3333;color:#fff;border-radius:6px;padding:9px 22px;font-size:0.9rem;cursor:pointer;font-weight:bold;">Yes, delete it</button>
+      <button id="del-account-cancel" style="background:#333;border:1px solid #555;color:#ccc;border-radius:6px;padding:9px 22px;font-size:0.9rem;cursor:pointer;">Cancel</button>
     </div>
   </div>
 </div>
@@ -2526,6 +2542,24 @@
     document.getElementById('report-btn').addEventListener('click', () => {
       overlay.classList.add('open');
       resultEl.textContent = '';
+    });
+
+    // Delete account
+    const delOverlay = document.getElementById('del-account-overlay');
+    document.getElementById('delete-account-btn').addEventListener('click', () => {
+      delOverlay.style.display = 'flex';
+    });
+    document.getElementById('del-account-cancel').addEventListener('click', () => {
+      delOverlay.style.display = 'none';
+    });
+    delOverlay.addEventListener('click', e => { if (e.target === delOverlay) delOverlay.style.display = 'none'; });
+    document.getElementById('del-account-confirm').addEventListener('click', () => {
+      delOverlay.style.display = 'none';
+      socket.emit('delete_own_account');
+    });
+    socket.on('account_deleted', () => {
+      alert('Your account has been deleted.');
+      location.reload();
     });
     closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
