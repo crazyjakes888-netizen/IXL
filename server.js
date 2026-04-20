@@ -891,23 +891,22 @@ function doWipeAll() {
 }
 
 // ---- Daily midnight CST reset ----
-// CST = UTC-6, CDT = UTC-5. We schedule for 06:00 UTC which is midnight CST
-// (and 01:00 CST during CDT — close enough, and avoids DST complexity).
-function scheduleMidnightWipe() {
-  const now = new Date();
-  // Next 06:00 UTC
-  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0, 0));
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // already past today's 06:00, use tomorrow
-  const msUntil = next - now;
-  console.log(`[Reset] Next daily wipe in ${Math.round(msUntil / 60000)} minutes (at ${next.toUTCString()})`);
-  setTimeout(() => {
+// Check every minute — survives Render free-tier sleep/wake cycles.
+// CST = UTC-6. A "CST day" string is used to detect when the date rolls over.
+function getCSTDateStr() {
+  const cst = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  return cst.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+let lastWipeDate = getCSTDateStr(); // initialize to today so we don't wipe on startup
+setInterval(() => {
+  const today = getCSTDateStr();
+  if (today !== lastWipeDate) {
+    lastWipeDate = today;
     console.log('[Reset] Running daily midnight CST wipe...');
     doWipeAll();
     io.emit('chat', { system: true, msg: '🌙 Daily reset! All cookies and upgrades have been wiped. Good luck!', time: Date.now() });
-    scheduleMidnightWipe(); // schedule the next one
-  }, msUntil);
-}
-scheduleMidnightWipe();
+  }
+}, 60 * 1000);
 
 function getPlayerList() {
   return Object.entries(players).map(([id, p]) => ({

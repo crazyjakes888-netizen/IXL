@@ -1484,7 +1484,6 @@
 
   function saveProgress() {
     if (!myName) return;
-    localStorage.setItem('cc_' + myName, JSON.stringify({ cookies: Math.floor(cookies), owned }));
     if (socket) socket.emit('save_progress', { cookies: Math.floor(cookies), owned });
   }
 
@@ -2455,22 +2454,12 @@
       return;
     }
     // Start with server value, then check localStorage for a more recent snapshot.
-    // This handles the race where the page re-auth fires before the sendBeacon POST
-    // arrives at the server — the client would get 0, then overwrite the correct
-    // beacon value with 0 on the next save_progress tick.
-    let finalCookies = savedCookies || 0;
-    let finalOwned = savedOwned || {};
-    try {
-      const local = JSON.parse(localStorage.getItem('cc_' + username) || 'null');
-      if (local && (local.cookies || 0) > finalCookies) {
-        finalCookies = local.cookies;
-        if (local.owned) finalOwned = local.owned; // localStorage is more recent
-      }
-    } catch(e) {}
-    cookies = finalCookies;
-    Object.keys(finalOwned).forEach(k => {
-      if (owned[k] !== undefined) owned[k] = Number(finalOwned[k]) || 0;
+    cookies = savedCookies || 0;
+    Object.keys(savedOwned || {}).forEach(k => {
+      if (owned[k] !== undefined) owned[k] = Number(savedOwned[k]) || 0;
     });
+    // Clear any stale localStorage so it never overrides a server wipe
+    try { localStorage.removeItem('cc_' + username); } catch(e) {}
     recalcCps();
     startGame(username, socket0);
   });
