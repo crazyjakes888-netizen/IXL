@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>i-Ready</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #f0f4f8; color: #333; min-height: 100vh; }
+
+  /* ---- Top Nav ---- */
+  .topnav {
+    background: #0077c8;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  }
+  .topnav-logo {
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: bold;
+    letter-spacing: -0.3px;
+  }
+  .topnav-logo span { color: #7ecfff; }
+  .topnav-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    color: #d0eaff;
+    font-size: 0.82rem;
+  }
+  .avatar {
+    width: 30px; height: 30px;
+    background: #005fa3;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: bold; font-size: 0.82rem;
+    border: 2px solid #5bb8ff;
+  }
+
+  /* ---- Sub Nav ---- */
+  .subnav {
+    background: #fff;
+    border-bottom: 1px solid #d6e4ef;
+    display: flex;
+    gap: 0;
+    padding: 0 24px;
+  }
+  .subnav-item {
+    padding: 13px 18px;
+    font-size: 0.82rem;
+    color: #555;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .subnav-item.active {
+    color: #0077c8;
+    border-bottom-color: #0077c8;
+    font-weight: bold;
+  }
+  .subnav-item:hover { color: #0077c8; }
+
+  /* ---- Main ---- */
+  .main { padding: 24px; max-width: 960px; margin: 0 auto; }
+
+  .welcome-bar {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 22px;
+  }
+  .welcome-bar strong { color: #0077c8; }
+
+  /* ---- Subject Cards ---- */
+  .cards { display: flex; gap: 18px; margin-bottom: 28px; flex-wrap: wrap; }
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    flex: 1;
+    min-width: 220px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.08);
+    border-top: 4px solid #0077c8;
+  }
+  .card.math { border-top-color: #00a651; }
+  .card-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1.2px; color: #999; margin-bottom: 5px; }
+  .card-title { font-size: 1rem; font-weight: bold; color: #222; margin-bottom: 14px; }
+  .prog-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; margin-bottom: 5px; }
+  .prog-bar { height: 7px; background: #e4edf5; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+  .prog-fill { height: 100%; border-radius: 4px; background: #0077c8; }
+  .prog-fill.math { background: #00a651; }
+  .card-btn {
+    display: inline-block;
+    background: #0077c8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 0.82rem;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+  }
+  .card-btn.math { background: #00a651; }
+  .card-btn:hover { opacity: 0.9; }
+
+  /* ---- My Path ---- */
+  .section-head {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #333;
+    padding-bottom: 9px;
+    border-bottom: 2px solid #d6e4ef;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .lessons { display: flex; flex-direction: column; gap: 10px; }
+  .lesson {
+    background: #fff;
+    border-radius: 6px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-left: 4px solid #0077c8;
+  }
+  .lesson.math { border-left-color: #00a651; }
+  .lesson-circle {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #e8f4fd;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+    font-size: 0.82rem;
+    color: #0077c8;
+    flex-shrink: 0;
+  }
+  .lesson-circle.math { background: #e8f8ee; color: #00a651; }
+  .lesson-name { font-size: 0.88rem; font-weight: bold; color: #222; }
+  .lesson-sub { font-size: 0.74rem; color: #888; margin-top: 2px; }
+  .lesson-badge {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  .badge-inprogress { background: #e8f4fd; color: #0077c8; }
+  .badge-next { background: #f0f4f8; color: #777; }
+  .badge-done { background: #e8f8ee; color: #00a651; }
+
+  /* ---- Footer bar ---- */
+  .footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #d6e4ef;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 10px;
+  }
+  .fnav {
+    text-align: center;
+    font-size: 0.68rem;
+    color: #aaa;
+    cursor: pointer;
+  }
+  .fnav.active { color: #0077c8; font-weight: bold; }
+  .fnav-bar {
+    width: 28px; height: 3px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    margin: 0 auto 5px;
+  }
+  .fnav.active .fnav-bar { background: #0077c8; }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-logo">i-<span>Ready</span></div>
+  <div class="topnav-right">
+    <span>My Profile</span>
+    <span>Help</span>
+    <div class="avatar">S</div>
+  </div>
+</div>
+
+<div class="subnav">
+  <div class="subnav-item active">Home</div>
+  <div class="subnav-item">My Path</div>
+  <div class="subnav-item">Results</div>
+  <div class="subnav-item">Games</div>
+</div>
+
+<div class="main">
+  <div class="welcome-bar">Welcome back, <strong>Student</strong>. Keep up the great work!</div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Reading</div>
+      <div class="card-title">Language Arts</div>
+      <div class="prog-row"><span>Lessons completed</span><span>12 of 40</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:30%"></div></div>
+      <button class="card-btn">Continue Lesson</button>
+    </div>
+    <div class="card math">
+      <div class="card-label">Mathematics</div>
+      <div class="card-title">Math</div>
+      <div class="prog-row"><span>Lessons completed</span><span>8 of 35</span></div>
+      <div class="prog-bar"><div class="prog-fill math" style="width:23%"></div></div>
+      <button class="card-btn math">Continue Lesson</button>
+    </div>
+  </div>
+
+  <div class="section-head">My Path — Up Next</div>
+  <div class="lessons">
+    <div class="lesson">
+      <div class="lesson-circle">R</div>
+      <div>
+        <div class="lesson-name">Understanding Main Idea and Key Details</div>
+        <div class="lesson-sub">Reading &nbsp;·&nbsp; Informational Text &nbsp;·&nbsp; Grade 5</div>
+      </div>
+      <div class="lesson-badge badge-inprogress">In Progress</div>
+    </div>
+    <div class="lesson math">
+      <div class="lesson-circle math">M</div>
+      <div>
+        <div class="lesson-name">Multiplying Fractions by Whole Numbers</div>
+        <div class="lesson-sub">Math &nbsp;·&nbsp; Numbers and Operations &nbsp;·&nbsp; Grade 5</div>
+      </div>
+      <div class="lesson-badge badge-next">Up Next</div>
+    </div>
+    <div class="lesson">
+      <div class="lesson-circle">R</div>
+      <div>
+        <div class="lesson-name">Figurative Language: Similes and Metaphors</div>
+        <div class="lesson-sub">Reading &nbsp;·&nbsp; Literature &nbsp;·&nbsp; Grade 5</div>
+      </div>
+      <div class="lesson-badge badge-next">Up Next</div>
+    </div>
+    <div class="lesson math">
+      <div class="lesson-circle math">M</div>
+      <div>
+        <div class="lesson-name">Dividing Unit Fractions</div>
+        <div class="lesson-sub">Math &nbsp;·&nbsp; Numbers and Operations &nbsp;·&nbsp; Grade 5</div>
+      </div>
+      <div class="lesson-badge badge-done">Completed</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div class="fnav active"><div class="fnav-bar"></div>Home</div>
+  <div class="fnav"><div class="fnav-bar"></div>My Path</div>
+  <div class="fnav"><div class="fnav-bar"></div>Results</div>
+  <div class="fnav"><div class="fnav-bar"></div>Games</div>
+</div>
+
+</body>
+</html>

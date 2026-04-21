@@ -2688,11 +2688,11 @@
 
   // Boss key: press H to show/hide a fullscreen i-Ready screenshot overlay
   const _bossOverlay = document.createElement('div');
-  _bossOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:999999;background:#fff;cursor:pointer;';
-  const _bossImg = document.createElement('img');
-  _bossImg.src = '/iready.jpg';
-  _bossImg.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:top;';
-  _bossOverlay.appendChild(_bossImg);
+  _bossOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:999999;background:#fff;';
+  const _bossFrame = document.createElement('iframe');
+  _bossFrame.src = '/iready-cover.html';
+  _bossFrame.style.cssText = 'width:100%;height:100%;border:none;';
+  _bossOverlay.appendChild(_bossFrame);
   document.body.appendChild(_bossOverlay);
 
   let _bossVisible = false;
