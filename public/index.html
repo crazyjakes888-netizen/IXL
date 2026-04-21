@@ -71,6 +71,9 @@
     #vc-btn.vc-banned { background: #5c1a1a; border-color: #9a3a3a; color: #ff9999; cursor: not-allowed; font-size: 0.72rem; }
     #report-btn { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem; }
     #report-btn:hover { background: #444; }
+    #hide-btn { background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem; display: none; touch-action: manipulation; }
+    #hide-btn:hover { background: #444; }
+    @media (pointer: coarse) { #hide-btn { display: inline-flex; align-items: center; } }
     #theme-btn {
       width: 22px; height: 22px; border-radius: 50%;
       background: #111; border: 2px solid #888;
@@ -829,6 +832,7 @@
     <button id="vc-btn" title="Voice Chat">🎤 VC</button>
     <button id="report-btn" title="Reports">📋 Report</button>
     <button id="theme-btn" title="Toggle light/dark mode"></button>
+    <button id="hide-btn" title="Hide">🫣 Hide</button>
   </div>
   i-Ready &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="delete-account-btn" title="Delete my account" style="position:absolute;right:130px;top:50%;transform:translateY(-50%);background:#5a1a1a;border:1px solid #aa3333;color:#ff8888;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">🗑 Delete</button>
@@ -2697,6 +2701,7 @@
     _bossOverlay.style.display = _bossVisible ? 'block' : 'none';
   }
   _bossOverlay.addEventListener('click', () => { _bossVisible = false; _bossOverlay.style.display = 'none'; });
+  document.getElementById('hide-btn').addEventListener('click', toggleBossKey);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') {
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
