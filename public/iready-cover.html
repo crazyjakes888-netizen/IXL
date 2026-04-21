@@ -259,8 +259,21 @@
   <div class="fnav active"><div class="fnav-bar"></div>Home</div>
   <div class="fnav"><div class="fnav-bar"></div>My Path</div>
   <div class="fnav"><div class="fnav-bar"></div>Results</div>
-  <div class="fnav"><div class="fnav-bar"></div>Games</div>
+  <div class="fnav" id="games-btn"><div class="fnav-bar"></div>Games</div>
 </div>
+
+<script>
+  // Games tab closes the overlay and returns to the cookie clicker
+  document.getElementById('games-btn').addEventListener('click', function() {
+    window.parent.postMessage('exit-boss', '*');
+  });
+  // H key or Escape also closes it (for keyboard users)
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'h' || e.key === 'H' || e.key === 'Escape') {
+      window.parent.postMessage('exit-boss', '*');
+    }
+  });
+</script>
 
 </body>
 </html>

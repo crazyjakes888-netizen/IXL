@@ -2700,7 +2700,6 @@
     _bossVisible = !_bossVisible;
     _bossOverlay.style.display = _bossVisible ? 'block' : 'none';
   }
-  _bossOverlay.addEventListener('click', () => { _bossVisible = false; _bossOverlay.style.display = 'none'; });
   document.getElementById('hide-btn').addEventListener('click', toggleBossKey);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') {
@@ -2708,6 +2707,10 @@
       toggleBossKey();
     }
     if (e.key === 'Escape' && _bossVisible) { _bossVisible = false; _bossOverlay.style.display = 'none'; }
+  });
+  // Listen for exit message from the iframe (Games tab click, H/Escape inside iframe)
+  window.addEventListener('message', (e) => {
+    if (e.data === 'exit-boss') { _bossVisible = false; _bossOverlay.style.display = 'none'; }
   });
 </script>
 </body>
