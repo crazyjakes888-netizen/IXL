@@ -660,6 +660,22 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `🚂 CHOO CHOO'd ${targetName}` });
   });
 
+  // /pa — public announcement, big text across everyone's screen (or one player's)
+  socket.on('admin_pa', ({ message, targetName }) => {
+    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const safeMsg = String(message || '').slice(0, 200).replace(/[<>&"]/g, '');
+    if (!safeMsg.trim()) { socket.emit('admin_action_result', { ok: false, msg: 'Message cannot be empty.' }); return; }
+    if (targetName) {
+      const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
+      if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
+      io.to(entry[0]).emit('pa_announcement', safeMsg);
+      socket.emit('admin_action_result', { ok: true, msg: `📢 Sent announcement to ${entry[1].name}: "${safeMsg}"` });
+    } else {
+      io.emit('pa_announcement', safeMsg);
+      socket.emit('admin_action_result', { ok: true, msg: `📢 Announced to everyone: "${safeMsg}"` });
+    }
+  });
+
   socket.on('admin_vcban', ({ targetName, duration }) => {
     if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const lower = targetName.toLowerCase();
