@@ -839,6 +839,11 @@
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
 
+<!-- PA Announcement Banner -->
+<div id="pa-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99997;pointer-events:none;">
+  <div id="pa-text" style="background:rgba(0,0,0,0.82);color:#fff;text-align:center;padding:22px 32px;font-size:clamp(1.4rem,4vw,2.6rem);font-weight:bold;letter-spacing:1px;border-bottom:3px solid #5588ff;text-shadow:0 2px 12px rgba(0,100,255,0.4);word-break:break-word;"></div>
+</div>
+
 <!-- Pay Modal -->
 <div id="pay-modal-overlay">
   <div id="pay-modal">
@@ -1880,6 +1885,26 @@
       });
     });
 
+    socket.on('pa_announcement', (msg) => {
+      const banner = document.getElementById('pa-banner');
+      const text   = document.getElementById('pa-text');
+      text.textContent = msg;
+      banner.style.display = 'block';
+      banner.style.animation = 'none';
+      // Slide down
+      banner.style.transform = 'translateY(-100%)';
+      banner.style.transition = 'transform 0.35s cubic-bezier(0.22,1,0.36,1)';
+      requestAnimationFrame(() => requestAnimationFrame(() => { banner.style.transform = 'translateY(0)'; }));
+      // Auto-dismiss after 6s
+      clearTimeout(banner._paTimer);
+      banner._paTimer = setTimeout(() => {
+        banner.style.transition = 'transform 0.4s ease-in, opacity 0.4s ease-in';
+        banner.style.transform = 'translateY(-100%)';
+        banner.style.opacity = '0';
+        setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 420);
+      }, 6000);
+    });
+
     socket.on('train', () => {
       const ctx = getAudioCtx();
       ctx.resume().then(() => {
@@ -2442,8 +2467,19 @@
     } else if (cmd === '/vcunban') {
       if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
       socket.emit('admin_vcunban', parts.slice(1).join(' '));
+    } else if (cmd === '/pa') {
+      if (!parts[1]) { adminLog('Usage: /pa (message)  OR  /pa (message) > (name)', 'alog-err'); return; }
+      const raw = parts.slice(1).join(' ');
+      const arrow = raw.lastIndexOf('>');
+      if (arrow !== -1) {
+        const message = raw.slice(0, arrow).trim();
+        const targetName = raw.slice(arrow + 1).trim();
+        socket.emit('admin_pa', { message, targetName });
+      } else {
+        socket.emit('admin_pa', { message: raw, targetName: '' });
+      }
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban /pa', 'alog-err');
     }
   });
 
