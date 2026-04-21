@@ -2712,6 +2712,15 @@
   window.addEventListener('message', (e) => {
     if (e.data === 'exit-boss') { _bossVisible = false; _bossOverlay.style.display = 'none'; }
   });
+
+  // Auto-show fake i-Ready when tab is not active, hide when returning
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      _bossOverlay.style.display = 'block';
+    } else {
+      if (!_bossVisible) _bossOverlay.style.display = 'none';
+    }
+  });
 </script>
 </body>
 </html>
