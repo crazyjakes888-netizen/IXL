@@ -2682,12 +2682,27 @@
   buildAttacks();
   updateDisplay();
 
-  // Boss key: press H to instantly navigate to i-Ready (hide the game)
+  // Boss key: press H to show/hide a fullscreen i-Ready screenshot overlay
+  const _bossOverlay = document.createElement('div');
+  _bossOverlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:999999;background:#fff;cursor:pointer;';
+  const _bossImg = document.createElement('img');
+  _bossImg.src = '/iready.jpg';
+  _bossImg.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:top;';
+  _bossOverlay.appendChild(_bossImg);
+  document.body.appendChild(_bossOverlay);
+
+  let _bossVisible = false;
+  function toggleBossKey() {
+    _bossVisible = !_bossVisible;
+    _bossOverlay.style.display = _bossVisible ? 'block' : 'none';
+  }
+  _bossOverlay.addEventListener('click', () => { _bossVisible = false; _bossOverlay.style.display = 'none'; });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') {
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-      window.location.href = 'https://login.i-ready.com';
+      toggleBossKey();
     }
+    if (e.key === 'Escape' && _bossVisible) { _bossVisible = false; _bossOverlay.style.display = 'none'; }
   });
 </script>
 </body>
