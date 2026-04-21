@@ -815,7 +815,7 @@
 
 <div id="join-screen">
   <div id="join-box">
-    <h2>🍪 IXL Math</h2>
+    <h2>i-Ready</h2>
     <input id="auth-username" type="text" placeholder="Username..." maxlength="50" autocomplete="username" />
     <input id="auth-password" type="password" placeholder="Password..." maxlength="50" autocomplete="current-password" />
     <button id="login-btn">Login / Create Account</button>
@@ -830,7 +830,7 @@
     <button id="report-btn" title="Reports">📋 Report</button>
     <button id="theme-btn" title="Toggle light/dark mode"></button>
   </div>
-  🍪 IXL MATH &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
+  i-Ready &nbsp;|&nbsp; <span id="name-display" style="color:#aaa;font-size:0.9rem;"></span>
   <button id="delete-account-btn" title="Delete my account" style="position:absolute;right:130px;top:50%;transform:translateY(-50%);background:#5a1a1a;border:1px solid #aa3333;color:#ff8888;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">🗑 Delete</button>
   <button id="admin-btn" title="Admin Panel">🔑 Admin</button>
 </header>
@@ -2681,6 +2681,14 @@
   buildUpgrades();
   buildAttacks();
   updateDisplay();
+
+  // Boss key: press H to instantly navigate to i-Ready (hide the game)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'h' || e.key === 'H') {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+      window.location.href = 'https://login.i-ready.com';
+    }
+  });
 </script>
 </body>
 </html>
