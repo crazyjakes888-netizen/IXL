@@ -1252,8 +1252,6 @@
   let acLocked = false;
   let acHardLocked = false;
   let acHighCpsSeconds = 0;
-  let acWhitelisted = false;
-
   // On/off cycling state
   let acLastCpsWasZero = true;
   let acOnOffCount = 0;
@@ -1284,7 +1282,6 @@
   }
 
   function lockCookieBtn(reason) {
-    if (acWhitelisted) return;
     acLocked = true;
     const btn = document.getElementById('cookie-btn');
     btn.disabled = true;
@@ -1312,7 +1309,7 @@
   }
 
   function checkAutoClicker() {
-    if (acLocked || acWhitelisted) return;
+    if (acLocked) return;
     const now = Date.now();
 
     // Sliding 3s window for current CPS
@@ -1737,9 +1734,6 @@
       if (refund) { cookies += refund; updateDisplay(); updateButtons(); }
       showAttackError(msg);
     });
-
-    socket.on('ac_whitelisted', () => { acWhitelisted = true; });
-    socket.on('ac_blacklisted', () => { acWhitelisted = false; });
 
     socket.on('pay_result', ({ ok, msg, amount }) => {
       const resEl = document.getElementById('pay-result');
@@ -2297,12 +2291,10 @@
       if (isOwner) adminLog('/delaccount (name)             — fully delete account + kick  [Owner only]', 'alog-warn');
       if (isOwner) adminLog('/cookie add (name) (amount)    — give cookies  [Owner only]', 'alog-warn');
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
-      adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
-      adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
+      if (isOwner) adminLog('/cookie wipe (name)            — set cookies to 0  [Owner only]', 'alog-warn');
+      if (isOwner) adminLog('/wipeall                       — wipe ALL accounts  [Owner only]', 'alog-warn');
       adminLog('/subadminban (name)            — ban account from using sub-admin', 'alog-warn');
       adminLog('/subadminunban (name)          — restore sub-admin access', 'alog-warn');
-      adminLog('/autowhite (name)              — exempt from autoclicker detection', 'alog-warn');
-      adminLog('/autoblack (name)              — remove autoclicker exemption', 'alog-warn');
       adminLog('/kick (name)                   — close the player\'s tab', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom] — flashbang a player', 'alog-warn');
       adminLog('/foghorn (name)                — blast a foghorn at a player', 'alog-warn');
@@ -2372,6 +2364,7 @@
         const amount = parts[parts.length - 1];
         socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'remove' });
       } else if (action === 'wipe') {
+        if (window._adminRole !== 'owner') { adminLog('Only owners can use /cookie wipe.', 'alog-err'); return; }
         if (!parts[2]) { adminLog('Usage: /cookie wipe (name)', 'alog-err'); return; }
         socket.emit('admin_cookies', { name: parts.slice(2).join(' '), amount: 999999999999, action: 'remove' });
       } else {
@@ -2381,6 +2374,7 @@
       if (!parts[1]) { adminLog('Usage: /setpassword (newpassword)', 'alog-err'); return; }
       socket.emit('admin_setpassword', parts[1]);
     } else if (cmd === '/wipeall') {
+      if (window._adminRole !== 'owner') { adminLog('Only owners can use /wipeall.', 'alog-err'); return; }
       socket.emit('admin_wipeall');
     } else if (cmd === '/subadminban') {
       if (!parts[1]) { adminLog('Usage: /subadminban (name)', 'alog-err'); return; }
@@ -2388,12 +2382,6 @@
     } else if (cmd === '/subadminunban') {
       if (!parts[1]) { adminLog('Usage: /subadminunban (name)', 'alog-err'); return; }
       socket.emit('admin_subadminunban', parts.slice(1).join(' '));
-    } else if (cmd === '/autowhite') {
-      if (!parts[1]) { adminLog('Usage: /autowhite (name)', 'alog-err'); return; }
-      socket.emit('admin_autowhite', parts.slice(1).join(' '));
-    } else if (cmd === '/autoblack') {
-      if (!parts[1]) { adminLog('Usage: /autoblack (name)', 'alog-err'); return; }
-      socket.emit('admin_autoblack', parts.slice(1).join(' '));
     } else if (cmd === '/kick') {
       if (!parts[1]) { adminLog('Usage: /kick (name)', 'alog-err'); return; }
       socket.emit('admin_kick', parts.slice(1).join(' '));

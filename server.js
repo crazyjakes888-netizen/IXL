@@ -86,7 +86,6 @@ const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hou
 const adminNames = new Set();   // usernames (persists across reconnects)
 const ownerNames = new Set();   // usernames (persists across reconnects)
 function isAdmin(sid) { return admins.has(sid) || owners.has(sid); }
-const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
 const acHardTimeouts = {};       // name.toLowerCase() -> expiry timestamp (10 min)
 
@@ -259,7 +258,6 @@ io.on('connection', (socket) => {
   socket.on('autoclicker_report', ({ cps, ended, duration, locked, unlocked, reason }) => {
     if (!players[socket.id]) return;
     const name = players[socket.id].name;
-    if (acWhitelist.has(name)) return;
     let msg;
     if (locked) {
       msg = `🔒 [AC] ${name} LOCKED 10s — ${cps} CPS${reason ? ' | reason: ' + reason : ''}`;
@@ -337,7 +335,6 @@ io.on('connection', (socket) => {
     if (adminNames.has(safeName)) admins.add(socket.id);
     if (ownerNames.has(safeName)) owners.add(socket.id);
     // Restore autoclicker whitelist status
-    if (acWhitelist.has(safeName)) socket.emit('ac_whitelisted');
     // Notify client immediately if they have an active VC ban (survives refresh)
     const vcLower = safeName.toLowerCase();
     if (vcBans[vcLower]) {
@@ -539,6 +536,7 @@ io.on('connection', (socket) => {
   socket.on('admin_cookies', ({ name, amount, action }) => {
     if (!isAdmin(socket.id)) return;
     if (action === 'add' && !owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Only owners can add cookies.' }); return; }
+    if (action === 'remove' && parseInt(amount) >= 999999999999 && !owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Only owners can wipe cookies.' }); return; }
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     const amt = Math.max(0, parseInt(amount) || 0);
@@ -609,24 +607,9 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `${targetName} can use sub-admin again.` });
   });
 
-  socket.on('admin_autowhite', (targetName) => {
-    if (!isAdmin(socket.id)) return;
-    acWhitelist.add(targetName);
-    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
-    if (entry) io.to(entry[0]).emit('ac_whitelisted');
-    socket.emit('admin_action_result', { ok: true, msg: `${targetName} is now autoclicker-whitelisted.` });
-  });
-
-  socket.on('admin_autoblack', (targetName) => {
-    if (!isAdmin(socket.id)) return;
-    acWhitelist.delete(targetName);
-    const entry = Object.entries(players).find(([, p]) => p.name === targetName);
-    if (entry) io.to(entry[0]).emit('ac_blacklisted');
-    socket.emit('admin_action_result', { ok: true, msg: `${targetName} removed from autoclicker whitelist.` });
-  });
 
   socket.on('admin_wipeall', () => {
-    if (!isAdmin(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     doWipeAll();
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
   });
