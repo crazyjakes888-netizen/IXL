@@ -2162,14 +2162,19 @@
 
     socket.on('admin_result', ({ success, role }) => {
       if (success) {
+        window._adminRole = role;
         document.getElementById('admin-login-bar').style.display = 'none';
         document.getElementById('admin-output').style.display = 'block';
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in as Sub-Admin. Commands: /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban', 'alog-ok');
+          adminLog('Logged in as Sub-Admin. Commands: /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban /pa', 'alog-ok');
+        } else if (role === 'owner') {
+          document.getElementById('admin-cmd-bar').style.display = 'flex';
+          document.getElementById('admin-console-titlebar').querySelector('span').textContent = '👑 Owner Console';
+          adminLog('Logged in as Owner. Type /help for commands.', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
-          adminLog('Logged in. Type /help for commands.', 'alog-ok');
+          adminLog('Logged in as Admin. Type /help for commands.', 'alog-ok');
         }
       } else {
         const err = document.getElementById('admin-error');
@@ -2211,6 +2216,7 @@
   }
 
   function resetAdminConsole() {
+    window._adminRole = null;
     document.getElementById('admin-login-bar').style.display = 'flex';
     document.getElementById('admin-output').style.display = 'none';
     document.getElementById('admin-cmd-bar').style.display = 'none';
@@ -2219,6 +2225,7 @@
     document.getElementById('admin-error').style.display = 'none';
     document.getElementById('admin-pass').value = '';
     document.getElementById('admin-output').innerHTML = '';
+    document.getElementById('admin-console-titlebar').querySelector('span').textContent = '🛡️ Admin Console';
   }
 
   document.getElementById('admin-btn').addEventListener('click', () => {
@@ -2228,6 +2235,11 @@
     } else {
       resetAdminConsole();
       c.style.display = 'flex';
+      // Auto-login owner account without password
+      if (myName && myName.toLowerCase() === 'itsjjmc' && socket) {
+        document.getElementById('admin-login-bar').style.display = 'none';
+        socket.emit('admin_login', '');
+      }
     }
   });
 
@@ -2270,6 +2282,7 @@
     const cmd = parts[0].toLowerCase();
 
     if (cmd === '/help') {
+      const isOwner = window._adminRole === 'owner';
       adminLog('/mute (name)                   — name-based mute', 'alog-warn');
       adminLog('/ipmute (name)                 — permanent IP mute', 'alog-warn');
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
@@ -2277,15 +2290,14 @@
       adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
       adminLog('/unban (name)                  — remove ban', 'alog-warn');
       adminLog('/setpassword (name) (newpass)  — reset a player\'s password', 'alog-warn');
-      adminLog('/ipban (ip) (sec|perm)         — ban by IP', 'alog-warn');
+      if (isOwner) adminLog('/ipban (ip) (sec|perm)         — ban by IP  [Owner only]', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
       adminLog('/wipeaccount (name)            — wipe coins & upgrades (keep account)', 'alog-warn');
       adminLog('/wipeupgrades (name)           — wipe upgrades only', 'alog-warn');
-      adminLog('/delaccount (name)             — fully delete account + kick', 'alog-warn');
-      adminLog('/cookie add (name) (amount)    — give cookies', 'alog-warn');
+      if (isOwner) adminLog('/delaccount (name)             — fully delete account + kick  [Owner only]', 'alog-warn');
+      if (isOwner) adminLog('/cookie add (name) (amount)    — give cookies  [Owner only]', 'alog-warn');
       adminLog('/cookie remove (name) (amount) — take cookies', 'alog-warn');
       adminLog('/cookie wipe (name)            — set cookies to 0', 'alog-warn');
-      adminLog('/setpassword (newpassword)      — change admin password', 'alog-warn');
       adminLog('/wipeall                       — wipe ALL accounts (cookies + upgrades)', 'alog-warn');
       adminLog('/subadminban (name)            — ban account from using sub-admin', 'alog-warn');
       adminLog('/subadminunban (name)          — restore sub-admin access', 'alog-warn');
@@ -2299,6 +2311,7 @@
       adminLog('/vcban (name) (sec|perm)       — ban from voice chat', 'alog-warn');
       adminLog('/vcunban (name)                — remove VC ban', 'alog-warn');
       adminLog('/vcfilter on|off               — toggle auto bad-word VC ban', 'alog-warn');
+      adminLog('/pa (msg) or /pa (msg) > (name) — announcement banner', 'alog-warn');
       adminLog('/reports                       — open reports viewer in new tab', 'alog-warn');
       return;
     }
@@ -2334,6 +2347,7 @@
       const targetName = parts.slice(1, -1).join(' ');
       socket.emit('admin_setpassword', { targetName, newPassword });
     } else if (cmd === '/ipban') {
+      if (window._adminRole !== 'owner') { adminLog('Only owners can use /ipban.', 'alog-err'); return; }
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
       socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
     } else if (cmd === '/wipeaccount') {
@@ -2343,11 +2357,13 @@
       if (!parts[1]) { adminLog('Usage: /wipeupgrades (name)', 'alog-err'); return; }
       socket.emit('admin_wipe_upgrades', parts.slice(1).join(' '));
     } else if (cmd === '/delaccount') {
+      if (window._adminRole !== 'owner') { adminLog('Only owners can use /delaccount.', 'alog-err'); return; }
       if (!parts[1]) { adminLog('Usage: /delaccount (name)', 'alog-err'); return; }
       socket.emit('admin_delaccount', parts.slice(1).join(' '));
     } else if (cmd === '/cookie') {
       const action = parts[1];
       if (action === 'add') {
+        if (window._adminRole !== 'owner') { adminLog('Only owners can add cookies.', 'alog-err'); return; }
         if (parts.length < 4) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
         const amount = parts[parts.length - 1];
         socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(amount), action: 'add' });

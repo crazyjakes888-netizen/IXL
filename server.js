@@ -75,12 +75,17 @@ const bannedIPs = {}; // ip -> expiry or 'perm'
 const bannedNames = {}; // username -> expiry or 'perm'
 let ADMIN_PASSWORD = '1648';
 const SUB_ADMIN_PASSWORD = '3148';
+const OWNER_PASSWORD = '2089';
+const PROTECTED_NAMES = new Set(['itsjjmc']); // can't be banned or muted
 const subAdmins = new Set();
 const subAdminBanned = new Set(); // usernames banned from using sub-admin
 const admins = new Set();       // socket IDs
+const owners = new Set();       // socket IDs
 const vcMembers = new Set();    // socket IDs currently in voice chat
 const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
 const adminNames = new Set();   // usernames (persists across reconnects)
+const ownerNames = new Set();   // usernames (persists across reconnects)
+function isAdmin(sid) { return admins.has(sid) || owners.has(sid); }
 const acWhitelist = new Set();  // usernames exempt from autoclicker detection
 const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
 const acHardTimeouts = {};       // name.toLowerCase() -> expiry timestamp (10 min)
@@ -307,7 +312,7 @@ io.on('connection', (socket) => {
       return;
     }
     const safeName = String(name).slice(0, 50).replace(/[<>&"]/g, '') || 'Anonymous';
-    if (isBlocked(safeName, bannedNames)) {
+    if (!PROTECTED_NAMES.has(safeName.toLowerCase()) && isBlocked(safeName, bannedNames)) {
       const val = bannedNames[safeName];
       socket.emit('banned', val === 'perm' ? 'permanent' : Math.ceil((val - Date.now()) / 1000) + 's');
       socket.disconnect();
@@ -328,8 +333,9 @@ io.on('connection', (socket) => {
         time: Date.now()
       });
     }
-    // Restore admin status if they were admin before
+    // Restore admin/owner status if they were logged in before
     if (adminNames.has(safeName)) admins.add(socket.id);
+    if (ownerNames.has(safeName)) owners.add(socket.id);
     // Restore autoclicker whitelist status
     if (acWhitelist.has(safeName)) socket.emit('ac_whitelisted');
     // Notify client immediately if they have an active VC ban (survives refresh)
@@ -454,14 +460,20 @@ io.on('connection', (socket) => {
 
   // Admin login
   socket.on('admin_login', (password) => {
-    if (password === ADMIN_PASSWORD) {
+    const playerName = players[socket.id] && players[socket.id].name;
+    const isOwnerAccount = playerName && PROTECTED_NAMES.has(playerName.toLowerCase());
+    if (password === OWNER_PASSWORD || isOwnerAccount) {
+      owners.add(socket.id);
+      if (playerName) ownerNames.add(playerName);
+      socket.emit('admin_result', { success: true, role: 'owner' });
+      socket.emit('admin_playerlist', getPlayerList());
+    } else if (password === ADMIN_PASSWORD) {
       admins.add(socket.id);
-      if (players[socket.id]) adminNames.add(players[socket.id].name);
+      if (playerName) adminNames.add(playerName);
       socket.emit('admin_result', { success: true, role: 'admin' });
       socket.emit('admin_playerlist', getPlayerList());
     } else if (password === SUB_ADMIN_PASSWORD) {
-      const name = players[socket.id] && players[socket.id].name;
-      if (name && subAdminBanned.has(name.toLowerCase())) {
+      if (playerName && subAdminBanned.has(playerName.toLowerCase())) {
         socket.emit('admin_result', { success: false });
         return;
       }
@@ -475,7 +487,8 @@ io.on('connection', (socket) => {
 
   // Admin actions
   socket.on('admin_mute', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) return;
+    if (PROTECTED_NAMES.has(targetName.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${targetName} cannot be muted.` }); return; }
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedNames.add(entry[1].name.toLowerCase());
@@ -484,7 +497,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_ipmute', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
+    if (PROTECTED_NAMES.has(targetName.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${targetName} cannot be muted.` }); return; }
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
     mutedIPs[entry[1].ip] = 'perm';
@@ -494,7 +508,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_unmute', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) return;
     const lower = targetName.toLowerCase();
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === lower);
     mutedNames.delete(lower);
@@ -504,13 +518,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_clearchat', () => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     io.emit('chat_clear');
     socket.emit('admin_action_result', { ok: true, msg: 'Chat cleared.' });
   });
 
   socket.on('admin_timeout', ({ name, seconds }) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) return;
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) return;
+    if (PROTECTED_NAMES.has(name.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${name} cannot be timed out.` }); return; }
     const secs = Math.max(1, parseInt(seconds) || 30);
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === name.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
@@ -522,7 +537,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_cookies', ({ name, amount, action }) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
+    if (action === 'add' && !owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Only owners can add cookies.' }); return; }
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     const amt = Math.max(0, parseInt(amount) || 0);
@@ -531,14 +547,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_setpassword', (newPassword) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     if (!newPassword || newPassword.length < 4) { socket.emit('admin_action_result', { ok: false, msg: 'Password must be at least 4 characters.' }); return; }
     ADMIN_PASSWORD = String(newPassword);
     socket.emit('admin_action_result', { ok: true, msg: `Admin password changed.` });
   });
 
   socket.on('admin_wipeaccount', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
       return;
@@ -556,7 +572,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_delaccount', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
       return;
@@ -575,7 +591,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_subadminban', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     subAdminBanned.add(targetName.toLowerCase());
     // Kick them if currently logged in as sub-admin
     Object.entries(players).forEach(([sid, p]) => {
@@ -588,13 +604,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_subadminunban', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     subAdminBanned.delete(targetName.toLowerCase());
     socket.emit('admin_action_result', { ok: true, msg: `${targetName} can use sub-admin again.` });
   });
 
   socket.on('admin_autowhite', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     acWhitelist.add(targetName);
     const entry = Object.entries(players).find(([, p]) => p.name === targetName);
     if (entry) io.to(entry[0]).emit('ac_whitelisted');
@@ -602,7 +618,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_autoblack', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     acWhitelist.delete(targetName);
     const entry = Object.entries(players).find(([, p]) => p.name === targetName);
     if (entry) io.to(entry[0]).emit('ac_blacklisted');
@@ -610,13 +626,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_wipeall', () => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     doWipeAll();
     socket.emit('admin_action_result', { ok: true, msg: `Wiped all ${Object.keys(accounts).length} accounts.` });
   });
 
   socket.on('admin_wipe_upgrades', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
       return;
@@ -629,7 +645,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_flashbang', ({ targetName, volume }) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('flashbang', { volume: volume || 'medium' });
@@ -637,7 +653,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_foghorn', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('foghorn');
@@ -645,7 +661,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_fah', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('fah');
@@ -653,7 +669,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_train', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin. Re-enter your password.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('train');
@@ -662,7 +678,7 @@ io.on('connection', (socket) => {
 
   // /pa — public announcement, big text across everyone's screen (or one player's)
   socket.on('admin_pa', ({ message, targetName }) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const safeMsg = String(message || '').slice(0, 200).replace(/[<>&"]/g, '');
     if (!safeMsg.trim()) { socket.emit('admin_action_result', { ok: false, msg: 'Message cannot be empty.' }); return; }
     if (targetName) {
@@ -677,7 +693,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_vcban', ({ targetName, duration }) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const lower = targetName.toLowerCase();
     const isPerm = duration === 'perm';
     const secs = isPerm ? Infinity : (parseInt(duration) || 3600);
@@ -696,7 +712,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_vcunban', (targetName) => {
-    if (!admins.has(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const lower = targetName.toLowerCase();
     delete vcBans[lower]; // Delete even if not found (idempotent)
     // Tell the target their ban is lifted so their UI clears immediately
@@ -706,7 +722,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_ipban', ({ ip, duration }) => {
-    if (!admins.has(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     const isPerm = duration === 'perm';
     const safeIp = String(ip).slice(0, 100);
     bannedIPs[safeIp] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
@@ -721,7 +737,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_kick', (targetName) => {
-    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found online.` }); return; }
     io.to(entry[0]).emit('kicked');
@@ -729,7 +745,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_ban', ({ name, duration }) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
+    if (PROTECTED_NAMES.has(name.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${name} cannot be banned.` }); return; }
     const isPerm = duration === 'perm';
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
@@ -741,7 +758,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_setpassword', ({ targetName, newPassword }) => {
-    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     if (!targetName || !newPassword) { socket.emit('admin_action_result', { ok: false, msg: 'Usage: /setpassword (name) (newpass)' }); return; }
     const key = Object.keys(accounts).find(k => k.toLowerCase() === targetName.toLowerCase());
     if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found for "${targetName}".` }); return; }
@@ -751,7 +768,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_unban', (targetName) => {
-    if (!admins.has(socket.id)) return;
+    if (!isAdmin(socket.id)) return;
     const lower = targetName.toLowerCase();
     // Find matching key in bannedNames (case-insensitive)
     const key = Object.keys(bannedNames).find(k => k.toLowerCase() === lower);
@@ -815,7 +832,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_vcfilter', (state) => {
-    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     vcFilterEnabled = (state === 'on');
     const label = vcFilterEnabled ? '🟢 ON' : '🔴 OFF';
     socket.emit('admin_action_result', { ok: true, msg: `VC bad-word filter is now ${label}` });
@@ -834,6 +851,7 @@ io.on('connection', (socket) => {
     saveReports();
     socket.emit('report_result', { ok: true });
     admins.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
+    owners.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
   });
 
   socket.on('get_all_players', () => {
@@ -859,7 +877,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_get_reports_token', () => {
-    if (!admins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const tok = crypto.randomBytes(16).toString('hex');
     reportTokens[tok] = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
     socket.emit('admin_reports_token', tok);
@@ -882,6 +900,7 @@ io.on('connection', (socket) => {
       }, 30000);
       delete players[socket.id];
       admins.delete(socket.id);
+      owners.delete(socket.id);
       subAdmins.delete(socket.id);
       if (vcMembers.delete(socket.id)) {
         vcMembers.forEach(id => io.to(id).emit('vc_peer_left', socket.id));
