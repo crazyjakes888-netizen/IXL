@@ -71,6 +71,7 @@ const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const afkPlayers = new Set();   // names currently AFK (so disconnect doesn't double-announce "left")
 let slowMode = 0;               // global slow mode cooldown in seconds (0 = off)
+let showRulesLastBroadcast = 0; // prevents /rules from being spammed to everyone
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
@@ -449,6 +450,18 @@ io.on('connection', (socket) => {
   });
 
   // Private message
+  socket.on('show_rules', () => {
+    if (!players[socket.id]) return;
+    const now = Date.now();
+    if (now - showRulesLastBroadcast < 10000) return; // global 10s cooldown to prevent spam
+    showRulesLastBroadcast = now;
+    const name = players[socket.id].name;
+    ['📋 Rules:', '• Use at your own risk.', '• We are not responsible for how you use our product.'].forEach(line => {
+      io.emit('chat', { system: true, msg: line, time: Date.now() });
+    });
+    io.emit('chat', { system: true, msg: `(shared by ${name})`, time: Date.now() });
+  });
+
   socket.on('private_msg', ({ to, msg }) => {
     if (!players[socket.id]) return;
     const fromName = players[socket.id].name;

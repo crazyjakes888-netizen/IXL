@@ -2657,7 +2657,7 @@
     if (!msg) return;
     input.value = '';
     if (msg.toLowerCase() === '/rules') {
-      ['📋 Rules:', '• Use at your own risk.', '• We are not responsible for how you use our product.'].forEach(line => appendPrivateMsg(line, '#f0c060'));
+      if (socket) socket.emit('show_rules');
       return;
     }
     const msgLower = msg.toLowerCase();
