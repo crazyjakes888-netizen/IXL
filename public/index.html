@@ -2610,10 +2610,21 @@
   function sendChat() {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
-    if (msg && socket) {
-      socket.emit('chat_msg', msg);
-      input.value = '';
+    if (!msg) return;
+    input.value = '';
+    if (msg.toLowerCase() === '/rules') {
+      const msgs = document.getElementById('chat-messages');
+      ['📋 Rules:', '• Use at your own risk.', '• We are not responsible for how you use our product.'].forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'chat-msg system';
+        div.textContent = line;
+        div.style.color = '#f0c060';
+        msgs.appendChild(div);
+      });
+      msgs.scrollTop = msgs.scrollHeight;
+      return;
     }
+    if (socket) socket.emit('chat_msg', msg);
   }
 
   document.getElementById('chat-send').addEventListener('click', sendChat);
