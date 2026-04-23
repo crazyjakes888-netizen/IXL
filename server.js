@@ -337,8 +337,11 @@ io.on('connection', (socket) => {
       socket.disconnect();
       return;
     }
-    const isRejoining = !!recentlyLeft[safeName];
-    // Don't delete — keep suppressing until the 30s timer expires naturally
+    // Suppress join message if: recently left (30s window), same socket sent join twice,
+    // or another socket with this name is still in players (auth race condition)
+    const alreadyHere = (players[socket.id] && players[socket.id].name === safeName)
+      || Object.entries(players).some(([sid, p]) => sid !== socket.id && p.name === safeName);
+    const isRejoining = !!recentlyLeft[safeName] || alreadyHere;
     players[socket.id] = { name: safeName, cookies: 0, cps: 0, lastChat: 0, lastAttack: 0, ip };
     recordJoin(safeName);
 
