@@ -727,7 +727,7 @@ io.on('connection', (socket) => {
 
   // /pa — public announcement, big text across everyone's screen (or one player's)
   socket.on('admin_pa', ({ message, targetName }) => {
-    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Owner only.' }); return; }
     const safeMsg = String(message || '').slice(0, 200).replace(/[<>&"]/g, '');
     if (!safeMsg.trim()) { socket.emit('admin_action_result', { ok: false, msg: 'Message cannot be empty.' }); return; }
     if (targetName) {

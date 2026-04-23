@@ -2367,7 +2367,6 @@
       adminLog('── Fun ─────────────────────────────────────', 'alog-warn');
       adminLog('/flashbang (name) [loud/medium/quiet/lol/god/boom]', 'alog-warn');
       adminLog('/foghorn (name)  /fah (name)  /train (name)', 'alog-warn');
-      adminLog('/pa (msg)  or  /pa (msg) > (name)', 'alog-warn');
       adminLog('── Voice Chat ───────────────────────────────', 'alog-warn');
       adminLog('/slowmode (seconds)            — set chat cooldown (0 = off)', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)  /vcunban (name)', 'alog-warn');
@@ -2380,6 +2379,8 @@
       adminLog('/reports                       — open reports viewer', 'alog-warn');
       if (isOwner) {
         adminLog('── Owner only ───────────────────────────────', 'alog-warn');
+        adminLog('/pa (message)                  — announce to everyone', 'alog-warn');
+        adminLog('/pa @name (message)            — announce to one player', 'alog-warn');
         adminLog('/admin (name)                  — grant admin role', 'alog-warn');
         adminLog('/subadmin (name)               — grant sub-admin role', 'alog-warn');
         adminLog('/revokeadmin (name)            — remove any role', 'alog-warn');
@@ -2461,12 +2462,6 @@
     } else if (cmd === '/vcfilter') {
       if (!['on','off'].includes(parts[1])) { adminLog('Usage: /vcfilter on|off', 'alog-err'); return; }
       socket.emit('admin_vcfilter', parts[1]);
-    } else if (cmd === '/pa') {
-      if (!parts[1]) { adminLog('Usage: /pa (message)  OR  /pa (message) > (name)', 'alog-err'); return; }
-      const raw = parts.slice(1).join(' ');
-      const arrow = raw.lastIndexOf('>');
-      if (arrow !== -1) socket.emit('admin_pa', { message: raw.slice(0, arrow).trim(), targetName: raw.slice(arrow + 1).trim() });
-      else socket.emit('admin_pa', { message: raw, targetName: '' });
     } else if (cmd === '/reports') {
       socket.emit('admin_get_reports_token');
     } else if (cmd === '/wordblock') {
@@ -2530,6 +2525,17 @@
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
       document.getElementById('ip-console-footer').textContent = 'Looking up locations...';
       socket.emit('admin_get_console');
+    } else if (cmd === '/pa') {
+      if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
+      if (!parts[1]) { adminLog('Usage: /pa (message)  OR  /pa @name (message)', 'alog-err'); return; }
+      if (parts[1].startsWith('@')) {
+        const targetName = parts[1].slice(1);
+        const message = parts.slice(2).join(' ');
+        if (!message) { adminLog('Usage: /pa @name (message)', 'alog-err'); return; }
+        socket.emit('admin_pa', { message, targetName });
+      } else {
+        socket.emit('admin_pa', { message: parts.slice(1).join(' '), targetName: '' });
+      }
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
     }
@@ -2592,19 +2598,8 @@
     } else if (cmd === '/vcunban') {
       if (!parts[1]) { adminLog('Usage: /vcunban (name)', 'alog-err'); return; }
       socket.emit('admin_vcunban', parts.slice(1).join(' '));
-    } else if (cmd === '/pa') {
-      if (!parts[1]) { adminLog('Usage: /pa (message)  OR  /pa (message) > (name)', 'alog-err'); return; }
-      const raw = parts.slice(1).join(' ');
-      const arrow = raw.lastIndexOf('>');
-      if (arrow !== -1) {
-        const message = raw.slice(0, arrow).trim();
-        const targetName = raw.slice(arrow + 1).trim();
-        socket.emit('admin_pa', { message, targetName });
-      } else {
-        socket.emit('admin_pa', { message: raw, targetName: '' });
-      }
     } else {
-      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban /pa', 'alog-err');
+      adminLog('Unknown command. Sub-admins can only use /mute /unmute /timeout /flashbang /foghorn /fah /vcban /vcunban /slowmode', 'alog-err');
     }
   });
 
