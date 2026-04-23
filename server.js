@@ -69,6 +69,7 @@ app.patch('/api/reports/:id/read', (req, res) => {
 const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
+const afkPlayers = new Set();   // names currently AFK (so disconnect doesn't double-announce "left")
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
@@ -82,6 +83,14 @@ const vcMembers = new Set();    // socket IDs currently in voice chat
 const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
 const ownerNames = new Set();   // usernames (persists across reconnects)
 function isAdmin(sid) { return admins.has(sid) || owners.has(sid); }
+function markRecentlyLeft(name) {
+  recentlyLeft[name] = Date.now();
+  if (recentlyLeftTimers[name]) clearTimeout(recentlyLeftTimers[name]);
+  recentlyLeftTimers[name] = setTimeout(() => {
+    delete recentlyLeft[name];
+    delete recentlyLeftTimers[name];
+  }, 30000);
+}
 const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
 const acHardTimeouts = {};       // name.toLowerCase() -> expiry timestamp (10 min)
 
@@ -147,6 +156,18 @@ function saveReports() {
   }
 }
 const reportTokens = {}; // token -> expiry timestamp
+
+// ---- Custom blocked phrases (admin/owner) ----
+const BLOCKED_PHRASES_FILE = path.join(DATA_DIR, 'blocked_phrases.json');
+let blockedPhrases = [];
+try { blockedPhrases = JSON.parse(fs.readFileSync(BLOCKED_PHRASES_FILE, 'utf8')); } catch(e) {}
+function saveBlockedPhrases() {
+  fs.writeFile(BLOCKED_PHRASES_FILE, JSON.stringify(blockedPhrases), () => {});
+}
+function containsBlockedPhrase(text) {
+  const norm = normalize(text, 'i').replace(/\s+/g, '');
+  return blockedPhrases.some(phrase => norm.includes(normalize(phrase, 'i').replace(/\s+/g, '')));
+}
 
 function getIP(socket) {
   return socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address;
@@ -240,6 +261,7 @@ io.on('connection', (socket) => {
     // Kick any existing session for this username to prevent duplication
     io.sockets.sockets.forEach((existingSock, sid) => {
       if (sid !== socket.id && existingSock._authedName === uname) {
+        markRecentlyLeft(uname); // set BEFORE async disconnect so join handler sees it
         existingSock.emit('force_logout', 'You were logged in from another location.');
         if (players[sid]) delete players[sid];
         existingSock.disconnect(true);
@@ -398,6 +420,10 @@ io.on('connection', (socket) => {
       ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])
     );
     if (!safeMsg.trim()) return;
+    if (containsBlockedPhrase(safeMsg)) {
+      socket.emit('chat_cooldown', 'muted');
+      return;
+    }
     const filteredMsg = filterMsg(safeMsg);
     const filteredName = filterMsg(players[socket.id].name);
     io.emit('chat', {
@@ -733,6 +759,32 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg });
   });
 
+  socket.on('admin_wordblock', (phrase) => {
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const p = String(phrase).slice(0, 100).trim().toLowerCase();
+    if (!p) { socket.emit('admin_action_result', { ok: false, msg: 'No phrase provided.' }); return; }
+    if (blockedPhrases.includes(p)) { socket.emit('admin_action_result', { ok: false, msg: `"${p}" is already blocked.` }); return; }
+    blockedPhrases.push(p);
+    saveBlockedPhrases();
+    socket.emit('admin_action_result', { ok: true, msg: `Blocked phrase: "${p}"` });
+  });
+
+  socket.on('admin_wordunblock', (phrase) => {
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    const p = String(phrase).slice(0, 100).trim().toLowerCase();
+    const idx = blockedPhrases.indexOf(p);
+    if (idx === -1) { socket.emit('admin_action_result', { ok: false, msg: `"${p}" is not in the blocked list.` }); return; }
+    blockedPhrases.splice(idx, 1);
+    saveBlockedPhrases();
+    socket.emit('admin_action_result', { ok: true, msg: `Unblocked phrase: "${p}"` });
+  });
+
+  socket.on('admin_blockedwords', () => {
+    if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
+    if (!blockedPhrases.length) { socket.emit('admin_action_result', { ok: true, msg: 'No custom phrases blocked.' }); return; }
+    socket.emit('admin_action_result', { ok: true, msg: `Blocked phrases (${blockedPhrases.length}): ${blockedPhrases.map(p => `"${p}"`).join(', ')}` });
+  });
+
   socket.on('admin_kick', (targetName) => {
     if (!isAdmin(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Not logged in as admin.' }); return; }
     const entry = Object.entries(players).find(([, p]) => p.name.toLowerCase() === targetName.toLowerCase());
@@ -866,11 +918,23 @@ io.on('connection', (socket) => {
   });
 
   socket.on('set_afk', () => {
-    if (players[socket.id]) players[socket.id].afk = true;
+    if (!players[socket.id]) return;
+    const name = players[socket.id].name;
+    players[socket.id].afk = true;
+    if (!afkPlayers.has(name)) {
+      afkPlayers.add(name);
+      io.emit('chat', { system: true, msg: `${name} left the game.`, time: Date.now() });
+    }
   });
 
   socket.on('set_active', () => {
-    if (players[socket.id]) players[socket.id].afk = false;
+    if (!players[socket.id]) return;
+    const name = players[socket.id].name;
+    players[socket.id].afk = false;
+    if (afkPlayers.has(name)) {
+      afkPlayers.delete(name);
+      io.emit('chat', { system: true, msg: `${name} is back!`, time: Date.now() });
+    }
   });
 
   socket.on('admin_get_reports_token', () => {
@@ -900,12 +964,12 @@ io.on('connection', (socket) => {
         if (players[socket.id].owned) accounts[name].owned = players[socket.id].owned;
         saveAccounts(true); // immediate on disconnect
       }
-      recentlyLeft[name] = Date.now();
-      if (recentlyLeftTimers[name]) clearTimeout(recentlyLeftTimers[name]);
-      recentlyLeftTimers[name] = setTimeout(() => {
-        delete recentlyLeft[name];
-        delete recentlyLeftTimers[name];
-      }, 30000);
+      // Announce "left" only if they weren't already announced as AFK
+      if (!afkPlayers.has(name)) {
+        io.emit('chat', { system: true, msg: `${name} left the game.`, time: Date.now() });
+      }
+      afkPlayers.delete(name);
+      markRecentlyLeft(name);
       delete players[socket.id];
       admins.delete(socket.id);
       owners.delete(socket.id);

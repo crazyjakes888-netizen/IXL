@@ -2371,6 +2371,10 @@
       adminLog('── Voice Chat ───────────────────────────────', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)  /vcunban (name)', 'alog-warn');
       adminLog('/vcfilter on|off           — toggle bad-word auto-ban', 'alog-warn');
+      adminLog('── Word Filter ──────────────────────────────', 'alog-warn');
+      adminLog('/wordblock (phrase)            — block a phrase in chat', 'alog-warn');
+      adminLog('/wordunblock (phrase)          — unblock a phrase', 'alog-warn');
+      adminLog('/blockedwords                  — list all blocked phrases', 'alog-warn');
       adminLog('── Other ────────────────────────────────────', 'alog-warn');
       adminLog('/reports                       — open reports viewer', 'alog-warn');
       if (isOwner) {
@@ -2452,6 +2456,14 @@
       else socket.emit('admin_pa', { message: raw, targetName: '' });
     } else if (cmd === '/reports') {
       socket.emit('admin_get_reports_token');
+    } else if (cmd === '/wordblock') {
+      if (!parts[1]) { adminLog('Usage: /wordblock (phrase)', 'alog-err'); return; }
+      socket.emit('admin_wordblock', parts.slice(1).join(' '));
+    } else if (cmd === '/wordunblock') {
+      if (!parts[1]) { adminLog('Usage: /wordunblock (phrase)', 'alog-err'); return; }
+      socket.emit('admin_wordunblock', parts.slice(1).join(' '));
+    } else if (cmd === '/blockedwords') {
+      socket.emit('admin_blockedwords');
     // Owner only
     } else if (cmd === '/admin') {
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
