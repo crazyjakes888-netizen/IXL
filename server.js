@@ -866,13 +866,13 @@ io.on('connection', (socket) => {
 
   socket.on('admin_get_console', () => {
     if (!owners.has(socket.id)) return;
-    const list = Object.entries(players).map(([, p]) => ({
-      name: p.name,
-      ip: p.ip || 'unknown',
-      cookies: p.cookies,
-      cps: p.cps
+    const playerList = Object.entries(players).map(([, p]) => ({
+      name: p.name, ip: p.ip || 'unknown', cookies: p.cookies, cps: p.cps
     }));
-    socket.emit('admin_console_data', list);
+    lookupIPs(playerList.map(p => p.ip)).then(geoMap => {
+      const list = playerList.map(p => ({ ...p, location: geoMap[p.ip] || '—' }));
+      socket.emit('admin_console_data', list);
+    });
   });
 
   socket.on('disconnect', () => {
@@ -949,6 +949,36 @@ function getPlayerList() {
   return Object.entries(players).map(([id, p]) => ({
     name: p.name, cookies: p.cookies
   }));
+}
+
+function lookupIPs(ips) {
+  return new Promise((resolve) => {
+    const unique = [...new Set(ips.filter(ip => ip && ip !== 'unknown' && ip !== '::1' && !ip.startsWith('127.')))];
+    if (!unique.length) { resolve({}); return; }
+    const body = JSON.stringify(unique.map(q => ({ query: q, fields: 'status,country,regionName,city' })));
+    const req = require('http').request({
+      hostname: 'ip-api.com', path: '/batch', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const results = JSON.parse(data);
+          const map = {};
+          results.forEach((r, i) => {
+            map[unique[i]] = r.status === 'success'
+              ? [r.city, r.regionName, r.country].filter(Boolean).join(', ')
+              : 'Unknown';
+          });
+          resolve(map);
+        } catch { resolve({}); }
+      });
+    });
+    req.on('error', () => resolve({}));
+    req.write(body);
+    req.end();
+  });
 }
 
 function getLeaderboard() {

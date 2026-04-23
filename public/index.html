@@ -902,6 +902,7 @@
             <th style="padding:6px 10px;">#</th>
             <th style="padding:6px 10px;">Name</th>
             <th style="padding:6px 10px;">IP Address</th>
+            <th style="padding:6px 10px;">Location</th>
             <th style="padding:6px 10px;">Cookies</th>
             <th style="padding:6px 10px;">CPS</th>
           </tr>
@@ -2241,6 +2242,7 @@
           <td style="padding:6px 10px;color:#555;">${i + 1}</td>
           <td style="padding:6px 10px;font-weight:bold;color:#fff;">${p.name.replace(/[<>&"]/g, '')}</td>
           <td style="padding:6px 10px;color:#7ec8e3;letter-spacing:0.5px;">${p.ip.replace(/[<>&"]/g, '')}</td>
+          <td style="padding:6px 10px;color:#f0c060;">${(p.location || '—').replace(/[<>&"]/g, '')}</td>
           <td style="padding:6px 10px;">${Math.floor(p.cookies).toLocaleString()}</td>
           <td style="padding:6px 10px;color:#aaa;">${Number(p.cps).toFixed(1)}</td>`;
         rows.appendChild(tr);
@@ -2310,6 +2312,7 @@
     document.getElementById('ip-console-overlay').style.display = 'none';
   });
   document.getElementById('ip-console-refresh').addEventListener('click', () => {
+    document.getElementById('ip-console-footer').textContent = 'Looking up locations...';
     if (socket) socket.emit('admin_get_console');
   });
   document.getElementById('ip-console-overlay').addEventListener('click', function(e) {
@@ -2490,6 +2493,7 @@
       socket.emit('admin_delaccount', parts.slice(1).join(' '));
     } else if (cmd === '/console') {
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
+      document.getElementById('ip-console-footer').textContent = 'Looking up locations...';
       socket.emit('admin_get_console');
     } else {
       adminLog('Unknown command. Type /help', 'alog-err');
