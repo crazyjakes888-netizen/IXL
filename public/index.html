@@ -2277,6 +2277,26 @@
     if (c.style.display === 'flex') { c.style.display = 'none'; return; }
     resetAdminConsole();
     c.style.display = 'flex';
+    // Open console immediately using already-known role (no async wait)
+    const role = window._myRole;
+    if (role) {
+      window._adminRole = role;
+      document.getElementById('admin-output').style.display = 'block';
+      const titleSpan = document.getElementById('admin-console-titlebar').querySelector('span');
+      if (role === 'owner') {
+        titleSpan.textContent = '👑 Owner Console';
+        document.getElementById('admin-cmd-bar').style.display = 'flex';
+        adminLog('Owner Console. Type /help for commands.', 'alog-ok');
+      } else if (role === 'admin') {
+        titleSpan.textContent = '🛡️ Admin Console';
+        document.getElementById('admin-cmd-bar').style.display = 'flex';
+        adminLog('Admin Console. Type /help for commands.', 'alog-ok');
+      } else if (role === 'subadmin') {
+        titleSpan.textContent = '⚙️ Mod Console';
+        document.getElementById('subadmin-cmd-bar').style.display = 'flex';
+        adminLog('Mod Console. Type /help for commands.', 'alog-ok');
+      }
+    }
     if (socket) socket.emit('admin_login');
   });
 
