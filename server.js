@@ -73,17 +73,13 @@ const mutedIPs = {}; // ip -> expiry or 'perm'
 const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
 const bannedNames = {}; // username -> expiry or 'perm'
-let ADMIN_PASSWORD = '1648';
-const SUB_ADMIN_PASSWORD = '3148';
 const OWNER_PASSWORD = '2089';
-const PROTECTED_NAMES = new Set(['itsjjmc']); // can't be banned or muted
+const PROTECTED_NAMES = new Set(['itsjjmc']); // hardwired owner, can't be banned/muted
 const subAdmins = new Set();
-const subAdminBanned = new Set(); // usernames banned from using sub-admin
 const admins = new Set();       // socket IDs
 const owners = new Set();       // socket IDs
 const vcMembers = new Set();    // socket IDs currently in voice chat
 const vcBans = {};              // name.toLowerCase() -> expiry timestamp (1 hour)
-const adminNames = new Set();   // usernames (persists across reconnects)
 const ownerNames = new Set();   // usernames (persists across reconnects)
 function isAdmin(sid) { return admins.has(sid) || owners.has(sid); }
 const acLockCounts = {};         // name.toLowerCase() -> consecutive lock count
@@ -331,9 +327,18 @@ io.on('connection', (socket) => {
         time: Date.now()
       });
     }
-    // Restore admin/owner status if they were logged in before
-    if (adminNames.has(safeName)) admins.add(socket.id);
-    if (ownerNames.has(safeName)) owners.add(socket.id);
+    // Restore roles from account record or hardwired owner
+    const acct = accounts[safeName];
+    if (PROTECTED_NAMES.has(safeName.toLowerCase()) || ownerNames.has(safeName)) {
+      owners.add(socket.id);
+      socket.emit('role_granted', 'owner');
+    } else if (acct && acct.role === 'admin') {
+      admins.add(socket.id);
+      socket.emit('role_granted', 'admin');
+    } else if (acct && acct.role === 'subadmin') {
+      subAdmins.add(socket.id);
+      socket.emit('role_granted', 'subadmin');
+    }
     // Restore autoclicker whitelist status
     // Notify client immediately if they have an active VC ban (survives refresh)
     const vcLower = safeName.toLowerCase();
@@ -455,31 +460,51 @@ io.on('connection', (socket) => {
     io.to(target[0]).emit('attack_hit', { attackId, attackerName: players[socket.id].name });
   });
 
-  // Admin login
-  socket.on('admin_login', (password) => {
+  // Admin login — owner is hardwired; admin/subadmin are role-granted by owner
+  socket.on('admin_login', () => {
     const playerName = players[socket.id] && players[socket.id].name;
-    const isOwnerAccount = playerName && PROTECTED_NAMES.has(playerName.toLowerCase());
-    if (password === OWNER_PASSWORD || isOwnerAccount) {
+    if (!playerName) { socket.emit('admin_result', { success: false }); return; }
+    const isOwnerAccount = PROTECTED_NAMES.has(playerName.toLowerCase()) || ownerNames.has(playerName);
+    if (isOwnerAccount) {
       owners.add(socket.id);
-      if (playerName) ownerNames.add(playerName);
+      ownerNames.add(playerName);
       socket.emit('admin_result', { success: true, role: 'owner' });
-      socket.emit('admin_playerlist', getPlayerList());
-    } else if (password === ADMIN_PASSWORD) {
+      return;
+    }
+    const acct = accounts[playerName];
+    const role = acct && acct.role;
+    if (role === 'admin') {
       admins.add(socket.id);
-      if (playerName) adminNames.add(playerName);
       socket.emit('admin_result', { success: true, role: 'admin' });
-      socket.emit('admin_playerlist', getPlayerList());
-    } else if (password === SUB_ADMIN_PASSWORD) {
-      if (playerName && subAdminBanned.has(playerName.toLowerCase())) {
-        socket.emit('admin_result', { success: false });
-        return;
-      }
+    } else if (role === 'subadmin') {
       subAdmins.add(socket.id);
       socket.emit('admin_result', { success: true, role: 'subadmin' });
-      socket.emit('admin_playerlist', getPlayerList());
     } else {
       socket.emit('admin_result', { success: false });
     }
+  });
+
+  // Grant/revoke roles (owner only)
+  socket.on('admin_grant_role', ({ targetName, role }) => {
+    if (!owners.has(socket.id)) return;
+    const key = Object.keys(accounts).find(k => k.toLowerCase() === targetName.toLowerCase());
+    if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` }); return; }
+    if (PROTECTED_NAMES.has(key.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `Cannot change ${key}'s role.` }); return; }
+    const validRoles = ['admin', 'subadmin', null];
+    if (!validRoles.includes(role)) { socket.emit('admin_action_result', { ok: false, msg: 'Invalid role.' }); return; }
+    accounts[key].role = role || undefined;
+    if (!role) delete accounts[key].role;
+    saveAccounts();
+    const entry = Object.entries(players).find(([, p]) => p.name === key);
+    if (entry) {
+      const [sid] = entry;
+      admins.delete(sid); subAdmins.delete(sid);
+      if (role === 'admin') { admins.add(sid); io.to(sid).emit('role_granted', 'admin'); }
+      else if (role === 'subadmin') { subAdmins.add(sid); io.to(sid).emit('role_granted', 'subadmin'); }
+      else { io.to(sid).emit('role_revoked'); }
+    }
+    const label = role || 'none';
+    socket.emit('admin_action_result', { ok: true, msg: `✅ ${key}'s role set to: ${label}` });
   });
 
   // Admin actions
@@ -494,7 +519,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_ipmute', (targetName) => {
-    if (!isAdmin(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     if (PROTECTED_NAMES.has(targetName.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${targetName} cannot be muted.` }); return; }
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === targetName.toLowerCase());
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${targetName}" not found.` }); return; }
@@ -534,9 +559,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_cookies', ({ name, amount, action }) => {
-    if (!isAdmin(socket.id)) return;
-    if (action === 'add' && !owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Only owners can add cookies.' }); return; }
-    if (action === 'remove' && parseInt(amount) >= 999999999999 && !owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Only owners can wipe cookies.' }); return; }
+    if (!owners.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     const amt = Math.max(0, parseInt(amount) || 0);
@@ -544,15 +567,8 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `${action === 'add' ? 'Added' : 'Removed'} ${amt} cookies ${action === 'add' ? 'to' : 'from'} ${name}.` });
   });
 
-  socket.on('admin_setpassword', (newPassword) => {
-    if (!isAdmin(socket.id)) return;
-    if (!newPassword || newPassword.length < 4) { socket.emit('admin_action_result', { ok: false, msg: 'Password must be at least 4 characters.' }); return; }
-    ADMIN_PASSWORD = String(newPassword);
-    socket.emit('admin_action_result', { ok: true, msg: `Admin password changed.` });
-  });
-
   socket.on('admin_wipeaccount', (targetName) => {
-    if (!isAdmin(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
       return;
@@ -588,24 +604,6 @@ io.on('connection', (socket) => {
     io.emit('leaderboard', getLeaderboard());
   });
 
-  socket.on('admin_subadminban', (targetName) => {
-    if (!isAdmin(socket.id)) return;
-    subAdminBanned.add(targetName.toLowerCase());
-    // Kick them if currently logged in as sub-admin
-    Object.entries(players).forEach(([sid, p]) => {
-      if (p.name.toLowerCase() === targetName.toLowerCase() && subAdmins.has(sid)) {
-        subAdmins.delete(sid);
-        io.to(sid).emit('force_logout', 'Your sub-admin access has been revoked.');
-      }
-    });
-    socket.emit('admin_action_result', { ok: true, msg: `${targetName} is banned from sub-admin.` });
-  });
-
-  socket.on('admin_subadminunban', (targetName) => {
-    if (!isAdmin(socket.id)) return;
-    subAdminBanned.delete(targetName.toLowerCase());
-    socket.emit('admin_action_result', { ok: true, msg: `${targetName} can use sub-admin again.` });
-  });
 
 
   socket.on('admin_wipeall', () => {
@@ -615,7 +613,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_wipe_upgrades', (targetName) => {
-    if (!isAdmin(socket.id)) return;
+    if (!owners.has(socket.id)) return;
     if (!accounts[targetName]) {
       socket.emit('admin_action_result', { ok: false, msg: `No account found: ${targetName}` });
       return;
