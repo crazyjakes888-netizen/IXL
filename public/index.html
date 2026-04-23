@@ -1688,8 +1688,10 @@
     });
 
     socket.on('banned', (info) => {
-      const isPerm = info === 'permanent';
-      let secs = isPerm ? 0 : parseInt(info);
+      const [banPart, ...reasonParts] = String(info).split('|');
+      const reason = reasonParts.join('|').trim();
+      const isPerm = banPart === 'permanent';
+      let secs = isPerm ? 0 : parseInt(banPart);
       function fmtTime(s) {
         if (s <= 0) return '0:00';
         const m = Math.floor(s / 60), sec = s % 60;
@@ -1700,6 +1702,7 @@
           <div style="font-size:5rem;animation:shake 0.5s infinite">🔨🔨🔨</div>
           <div style="font-size:2.8rem;font-weight:bold;letter-spacing:3px;text-shadow:0 0 20px #ff0000">YOU ARE BANNED</div>
           <div style="font-size:1.1rem;color:#ff8888">${isPerm ? '🔨 This ban is <b>permanent</b>. You are not welcome here.' : '⏱ Time remaining: <span id="ban-timer">' + fmtTime(secs) + '</span>'}</div>
+          ${reason ? `<div style="font-size:0.95rem;color:#ffaaaa;max-width:500px;">Reason: ${reason.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}</div>` : ''}
           <div style="font-size:2rem">🚫</div>
         </div>
         <style>@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}</style>`;
@@ -2356,7 +2359,7 @@
       adminLog('/mute (name)                   — name-based mute', 'alog-warn');
       adminLog('/unmute (name)                 — remove mute', 'alog-warn');
       adminLog('/timeout (name) (sec)          — temp mute', 'alog-warn');
-      adminLog('/ban (name) (sec|perm)         — ban by name', 'alog-warn');
+      adminLog('/ban (name) (sec|perm) [reason] — ban by name', 'alog-warn');
       adminLog('/unban (name)                  — remove ban', 'alog-warn');
       adminLog('/kick (name)                   — disconnect a player', 'alog-warn');
       adminLog('/clear                         — clear chat', 'alog-warn');
@@ -2407,9 +2410,17 @@
       if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
       socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(parts[parts.length - 1]) });
     } else if (cmd === '/ban') {
-      if (parts.length < 3) { adminLog('Usage: /ban (name) (seconds|perm)', 'alog-err'); return; }
-      const dur = parts[parts.length - 1];
-      socket.emit('admin_ban', { name: parts.slice(1, -1).join(' '), duration: dur === 'perm' ? 'perm' : parseInt(dur) });
+      if (parts.length < 3) { adminLog('Usage: /ban (name) (seconds|perm) [reason]', 'alog-err'); return; }
+      // Find duration: first token from index 2 that is 'perm' or a number
+      let durIdx = -1;
+      for (let i = 2; i < parts.length; i++) {
+        if (parts[i] === 'perm' || /^\d+$/.test(parts[i])) { durIdx = i; break; }
+      }
+      if (durIdx === -1) { adminLog('Usage: /ban (name) (seconds|perm) [reason]', 'alog-err'); return; }
+      const banName = parts.slice(1, durIdx).join(' ');
+      const dur = parts[durIdx];
+      const banReason = parts.slice(durIdx + 1).join(' ');
+      socket.emit('admin_ban', { name: banName, duration: dur === 'perm' ? 'perm' : parseInt(dur), reason: banReason });
     } else if (cmd === '/unban') {
       if (!parts[1]) { adminLog('Usage: /unban (name)', 'alog-err'); return; }
       socket.emit('admin_unban', parts.slice(1).join(' '));
@@ -2880,9 +2891,16 @@
     }
     if (e.key === 'Escape' && _bossVisible) { _bossVisible = false; _bossOverlay.style.display = 'none'; }
   });
-  // Listen for exit message from the iframe (Games tab click, H/Escape inside iframe)
+  // Listen for messages from the boss key iframe
   window.addEventListener('message', (e) => {
     if (e.data === 'exit-boss') { _bossVisible = false; _bossOverlay.style.display = 'none'; }
+    if (e.data === 'cookie-click') {
+      // Silently credit a cookie click — same power as clicking the real button
+      const power = getClickPower();
+      cookies += power;
+      updateDisplay();
+      renderUpgrades();
+    }
   });
 
   // Auto-show fake i-Ready when tab is not active, hide when returning

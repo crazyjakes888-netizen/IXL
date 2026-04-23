@@ -207,14 +207,14 @@
       <div class="card-title">Language Arts</div>
       <div class="prog-row"><span>Lessons completed</span><span>12 of 40</span></div>
       <div class="prog-bar"><div class="prog-fill" style="width:30%"></div></div>
-      <button class="card-btn">Continue Lesson</button>
+      <button class="card-btn" id="ela-btn">Continue Lesson</button>
     </div>
     <div class="card math">
       <div class="card-label">Mathematics</div>
       <div class="card-title">Math</div>
       <div class="prog-row"><span>Lessons completed</span><span>8 of 35</span></div>
       <div class="prog-bar"><div class="prog-fill math" style="width:23%"></div></div>
-      <button class="card-btn math">Continue Lesson</button>
+      <button class="card-btn math" id="math-btn">Continue Lesson</button>
     </div>
   </div>
 
@@ -263,6 +263,14 @@
 </div>
 
 <script>
+  // Continue Lesson buttons silently click the cookie in the background
+  document.getElementById('ela-btn').addEventListener('click', function() {
+    window.parent.postMessage('cookie-click', '*');
+  });
+  document.getElementById('math-btn').addEventListener('click', function() {
+    window.parent.postMessage('cookie-click', '*');
+  });
+
   // Games tab closes the overlay and returns to the cookie clicker
   document.getElementById('games-btn').addEventListener('click', function() {
     window.parent.postMessage('exit-boss', '*');

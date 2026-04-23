@@ -147,14 +147,8 @@ function recordJoin(name) {
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 let reports = [];
 try { reports = JSON.parse(fs.readFileSync(REPORTS_FILE, 'utf8')); } catch(e) {}
-let _saveReportsTimer = null;
 function saveReports() {
-  if (!_saveReportsTimer) {
-    _saveReportsTimer = setTimeout(() => {
-      _saveReportsTimer = null;
-      fs.writeFile(REPORTS_FILE, JSON.stringify(reports), () => {});
-    }, 3000);
-  }
+  fs.writeFile(REPORTS_FILE, JSON.stringify(reports), () => {});
 }
 const reportTokens = {}; // token -> expiry timestamp
 
@@ -825,17 +819,21 @@ io.on('connection', (socket) => {
     socket.emit('admin_action_result', { ok: true, msg: `👢 Kicked ${targetName}` });
   });
 
-  socket.on('admin_ban', ({ name, duration }) => {
+  socket.on('admin_ban', ({ name, duration, reason }) => {
     if (!isAdmin(socket.id)) return;
     if (PROTECTED_NAMES.has(name.toLowerCase())) { socket.emit('admin_action_result', { ok: false, msg: `${name} cannot be banned.` }); return; }
     const isPerm = duration === 'perm';
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
     bannedNames[name] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
-    io.to(entry[0]).emit('banned', isPerm ? 'permanent' : duration + 's');
-    const msg = isPerm ? `🔨 ${name} permanently banned.` : `🔨 ${name} banned for ${duration}s.`;
-    io.emit('chat', { system: true, msg, time: Date.now() });
-    socket.emit('admin_action_result', { ok: true, msg });
+    const safeReason = reason ? String(reason).slice(0, 200) : '';
+    const banInfo = isPerm ? 'permanent' : duration + 's';
+    io.to(entry[0]).emit('banned', safeReason ? `${banInfo}|${safeReason}` : banInfo);
+    const chatMsg = isPerm
+      ? `🔨 ${name} permanently banned.${safeReason ? ' Reason: ' + safeReason : ''}`
+      : `🔨 ${name} banned for ${duration}s.${safeReason ? ' Reason: ' + safeReason : ''}`;
+    io.emit('chat', { system: true, msg: chatMsg, time: Date.now() });
+    socket.emit('admin_action_result', { ok: true, msg: chatMsg });
   });
 
   socket.on('admin_setpassword', ({ targetName, newPassword }) => {
@@ -928,8 +926,10 @@ io.on('connection', (socket) => {
     const safeText = String(text || '').slice(0, 1000).replace(/[<>&"]/g, '');
     const safeTarget = type === 'player' ? String(target || '').slice(0, 50).replace(/[<>&"]/g, '') : '';
     if (!safeText.trim()) { socket.emit('report_result', { ok: false, msg: 'Please enter a description.' }); return; }
-    reports.push({ id: Date.now(), type, from, target: safeTarget, text: safeText, time: Date.now(), read: false });
+    const entry = { id: Date.now(), type, from, target: safeTarget, text: safeText, time: Date.now(), read: false };
+    reports.push(entry);
     saveReports();
+    console.log(`[REPORT] ${JSON.stringify(entry)}`); // logged to Render dashboard even after restarts
     socket.emit('report_result', { ok: true });
     admins.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
     owners.forEach(aid => io.to(aid).emit('admin_action_result', { ok: true, msg: `📋 New ${type} report from ${from}` }));
