@@ -1097,7 +1097,7 @@ function getLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`IXL Math running at http://localhost:${PORT}`);
+  console.log(`i-Ready running at http://localhost:${PORT}`);
 
   // Self-ping every 14 minutes to prevent Render free tier sleep
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;

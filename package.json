@@ -1,7 +1,7 @@
 {
-  "name": "ixl-math",
+  "name": "i-ready",
   "version": "1.0.0",
-  "description": "Cookie Clicker game with real-time chat",
+  "description": "i-Ready Cookie Clicker game with real-time chat",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
