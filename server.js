@@ -866,6 +866,17 @@ io.on('connection', (socket) => {
     socket.emit('admin_reports_token', tok);
   });
 
+  socket.on('admin_get_console', () => {
+    if (!owners.has(socket.id)) return;
+    const list = Object.entries(players).map(([, p]) => ({
+      name: p.name,
+      ip: p.ip || 'unknown',
+      cookies: p.cookies,
+      cps: p.cps
+    }));
+    socket.emit('admin_console_data', list);
+  });
+
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
