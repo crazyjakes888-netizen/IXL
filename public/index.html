@@ -1003,7 +1003,7 @@
       <div id="chat-messages"></div>
       <div id="chat-input-row">
         <input id="name-color-picker" type="color" value="#aaaaff" title="Change your name color in chat" />
-        <input id="chat-input" type="text" placeholder="Say something..." maxlength="200" />
+        <input id="chat-input" type="text" placeholder="" maxlength="200" />
         <button id="chat-send">Send</button>
       </div>
     </div>
@@ -1656,7 +1656,7 @@
     socket.on('chat_cooldown', (secs) => {
       const input = document.getElementById('chat-input');
       input.placeholder = secs === 'muted' ? 'You are muted.' : `Wait ${secs}s...`;
-      if (secs !== 'muted') setTimeout(() => { input.placeholder = 'Say something...'; }, secs * 1000);
+      if (secs !== 'muted') setTimeout(() => { input.placeholder = ''; }, secs * 1000);
     });
 
     socket.on('chat', ({ system, name, nameColor, msg, time }) => {
@@ -1675,6 +1675,16 @@
 
     socket.on('chat_clear', () => {
       document.getElementById('chat-messages').innerHTML = '';
+    });
+
+    socket.on('private_msg_recv', ({ from, msg }) => {
+      appendPrivateMsg(`💬 ${from} → you: ${msg}`, '#c8a8ff');
+    });
+    socket.on('private_msg_sent', ({ to, msg }) => {
+      appendPrivateMsg(`💬 you → ${to}: ${msg}`, '#88c8ff');
+    });
+    socket.on('private_msg_err', (err) => {
+      appendPrivateMsg(`✗ ${err}`, '#ff8888');
     });
 
     socket.on('banned', (info) => {
@@ -2607,21 +2617,32 @@
   });
 
   // ---- Chat send ----
+  function appendPrivateMsg(text, color) {
+    const msgs = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-msg system';
+    div.style.color = color || '#c8a8ff';
+    div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
   function sendChat() {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
     if (!msg) return;
     input.value = '';
     if (msg.toLowerCase() === '/rules') {
-      const msgs = document.getElementById('chat-messages');
-      ['📋 Rules:', '• Use at your own risk.', '• We are not responsible for how you use our product.'].forEach(line => {
-        const div = document.createElement('div');
-        div.className = 'chat-msg system';
-        div.textContent = line;
-        div.style.color = '#f0c060';
-        msgs.appendChild(div);
-      });
-      msgs.scrollTop = msgs.scrollHeight;
+      ['📋 Rules:', '• Use at your own risk.', '• We are not responsible for how you use our product.'].forEach(line => appendPrivateMsg(line, '#f0c060'));
+      return;
+    }
+    const msgLower = msg.toLowerCase();
+    if (msgLower.startsWith('/msg ') || msgLower.startsWith('/m ')) {
+      const parts = msg.split(' ');
+      const toName = parts[1];
+      const message = parts.slice(2).join(' ').trim();
+      if (!toName || !message) { appendPrivateMsg('Usage: /msg <name> <message>', '#ff8888'); return; }
+      if (socket) socket.emit('private_msg', { to: toName, msg: message });
       return;
     }
     if (socket) socket.emit('chat_msg', msg);

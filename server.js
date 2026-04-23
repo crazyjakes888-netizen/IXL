@@ -408,6 +408,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Private message
+  socket.on('private_msg', ({ to, msg }) => {
+    if (!players[socket.id]) return;
+    const fromName = players[socket.id].name;
+    const safeMsg = String(msg).slice(0, 200).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+    const safeTo = String(to).slice(0, 50);
+    const target = Object.entries(players).find(([, p]) => p.name.toLowerCase() === safeTo.toLowerCase());
+    if (!target) { socket.emit('private_msg_err', `${safeTo} is not online.`); return; }
+    if (target[0] === socket.id) { socket.emit('private_msg_err', "You can't message yourself."); return; }
+    io.to(target[0]).emit('private_msg_recv', { from: fromName, msg: safeMsg });
+    socket.emit('private_msg_sent', { to: target[1].name, msg: safeMsg });
+  });
+
   // Pay a player
   socket.on('pay_player', ({ targetName, amount }) => {
     if (!players[socket.id]) return;
