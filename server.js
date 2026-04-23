@@ -293,8 +293,11 @@ io.on('connection', (socket) => {
       accounts[uname].owned = owned || {};
       saveAccounts();
     }
-    // Keep players in sync so disconnect handler never overwrites with a stale lower value
-    if (players[socket.id]) players[socket.id].cookies = val;
+    // Keep players in sync so disconnect handler can save latest state
+    if (players[socket.id]) {
+      players[socket.id].cookies = val;
+      players[socket.id].owned = owned || {};
+    }
   });
 
   socket.on('join', (name) => {
@@ -878,10 +881,10 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       const name = players[socket.id].name;
-      // Persist latest cookie count on disconnect — take the higher of in-memory vs already saved
-      // (save_progress may have already written a more recent value via the beacon)
-      if (accounts[name] && players[socket.id].cookies > (accounts[name].cookies || 0)) {
-        accounts[name].cookies = players[socket.id].cookies;
+      // Persist cookies and upgrades on disconnect — always save to avoid losing progress
+      if (accounts[name]) {
+        accounts[name].cookies = Math.max(players[socket.id].cookies || 0, accounts[name].cookies || 0);
+        if (players[socket.id].owned) accounts[name].owned = players[socket.id].owned;
         saveAccounts(true); // immediate on disconnect
       }
       recentlyLeft[name] = Date.now();
