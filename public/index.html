@@ -2195,15 +2195,12 @@
         if (role === 'subadmin') {
           document.getElementById('subadmin-cmd-bar').style.display = 'flex';
           titleSpan.textContent = '⚙️ Mod Console';
-          adminLog('Logged in as Sub-Admin. Commands: /help', 'alog-ok');
         } else if (role === 'owner') {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           titleSpan.textContent = '👑 Owner Console';
-          adminLog('Logged in as Owner. Type /help for commands.', 'alog-ok');
         } else {
           document.getElementById('admin-cmd-bar').style.display = 'flex';
           titleSpan.textContent = '🛡️ Admin Console';
-          adminLog('Logged in as Admin. Type /help for commands.', 'alog-ok');
         }
       }
     });
