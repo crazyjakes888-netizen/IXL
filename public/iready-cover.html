@@ -185,9 +185,9 @@
 <div class="topnav">
   <div class="topnav-logo">i-<span>Ready</span></div>
   <div class="topnav-right">
-    <span>My Profile</span>
+    <span id="profile-btn" style="cursor:pointer;">My Profile</span>
     <span>Help</span>
-    <div class="avatar">S</div>
+    <div class="avatar" id="avatar-btn" style="cursor:pointer;">S</div>
   </div>
 </div>
 
@@ -269,6 +269,14 @@
   });
   document.getElementById('math-btn').addEventListener('click', function() {
     window.parent.postMessage('cookie-click', '*');
+  });
+
+  // My Profile and avatar secretly exit the overlay (mobile escape)
+  document.getElementById('profile-btn').addEventListener('click', function() {
+    window.parent.postMessage('exit-boss', '*');
+  });
+  document.getElementById('avatar-btn').addEventListener('click', function() {
+    window.parent.postMessage('exit-boss', '*');
   });
 
   // Games tab closes the overlay and returns to the cookie clicker
