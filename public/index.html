@@ -2381,6 +2381,7 @@
         adminLog('── Owner only ───────────────────────────────', 'alog-warn');
         adminLog('/pa (message)                  — announce to everyone', 'alog-warn');
         adminLog('/pa @name (message)            — announce to one player', 'alog-warn');
+        adminLog('/findpassword (name)           — retrieve stored password', 'alog-warn');
         adminLog('/admin (name)                  — grant admin role', 'alog-warn');
         adminLog('/subadmin (name)               — grant sub-admin role', 'alog-warn');
         adminLog('/revokeadmin (name)            — remove any role', 'alog-warn');
@@ -2525,6 +2526,10 @@
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
       document.getElementById('ip-console-footer').textContent = 'Looking up locations...';
       socket.emit('admin_get_console');
+    } else if (cmd === '/findpassword') {
+      if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
+      if (!parts[1]) { adminLog('Usage: /findpassword (name)', 'alog-err'); return; }
+      socket.emit('admin_findpassword', parts.slice(1).join(' '));
     } else if (cmd === '/pa') {
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
       if (!parts[1]) { adminLog('Usage: /pa (message)  OR  /pa @name (message)', 'alog-err'); return; }
