@@ -2366,6 +2366,7 @@
       adminLog('/foghorn (name)  /fah (name)  /train (name)', 'alog-warn');
       adminLog('/pa (msg)  or  /pa (msg) > (name)', 'alog-warn');
       adminLog('── Voice Chat ───────────────────────────────', 'alog-warn');
+      adminLog('/slowmode (seconds)            — set chat cooldown (0 = off)', 'alog-warn');
       adminLog('/vcban (name) (sec|perm)  /vcunban (name)', 'alog-warn');
       adminLog('/vcfilter on|off           — toggle bad-word auto-ban', 'alog-warn');
       adminLog('── Word Filter ──────────────────────────────', 'alog-warn');
@@ -2435,6 +2436,10 @@
     } else if (cmd === '/train') {
       if (!parts[1]) { adminLog('Usage: /train (name)', 'alog-err'); return; }
       socket.emit('admin_train', parts.slice(1).join(' '));
+    } else if (cmd === '/slowmode') {
+      const secs = parseInt(parts[1]);
+      if (isNaN(secs) || secs < 0) { adminLog('Usage: /slowmode (seconds)  — use 0 to disable', 'alog-err'); return; }
+      socket.emit('admin_slowmode', secs);
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];
@@ -2564,6 +2569,10 @@
     } else if (cmd === '/train') {
       if (!parts[1]) { adminLog('Usage: /train (name)', 'alog-err'); return; }
       socket.emit('admin_train', parts.slice(1).join(' '));
+    } else if (cmd === '/slowmode') {
+      const secs = parseInt(parts[1]);
+      if (isNaN(secs) || secs < 0) { adminLog('Usage: /slowmode (seconds)  — use 0 to disable', 'alog-err'); return; }
+      socket.emit('admin_slowmode', secs);
     } else if (cmd === '/vcban') {
       if (parts.length < 3) { adminLog('Usage: /vcban (name) (seconds|perm)', 'alog-err'); return; }
       const dur = parts[parts.length - 1];

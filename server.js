@@ -70,6 +70,7 @@ const players = {};
 const recentlyLeft = {};        // name -> timestamp
 const recentlyLeftTimers = {};  // name -> clearTimeout handle
 const afkPlayers = new Set();   // names currently AFK (so disconnect doesn't double-announce "left")
+let slowMode = 0;               // global slow mode cooldown in seconds (0 = off)
 const mutedIPs = {}; // ip -> expiry or 'perm'
 const mutedNames = new Set(); // name-based mutes
 const bannedIPs = {}; // ip -> expiry or 'perm'
@@ -414,8 +415,24 @@ io.on('connection', (socket) => {
       return;
     }
     const now = Date.now();
-    if (now - players[socket.id].lastChat < 5000) {
-      socket.emit('chat_cooldown', Math.ceil((5000 - (now - players[socket.id].lastChat)) / 1000));
+    // Slow mode: enforce global cooldown if set
+    if (slowMode > 0 && !isAdmin(socket.id) && !subAdmins.has(socket.id)) {
+      const remaining = slowMode * 1000 - (now - players[socket.id].lastChat);
+      if (remaining > 0) {
+        socket.emit('chat_cooldown', Math.ceil(remaining / 1000));
+        return;
+      }
+    }
+    // Spam detection: 5 messages within 4 seconds → 30s auto-timeout
+    if (!players[socket.id].chatTimes) players[socket.id].chatTimes = [];
+    players[socket.id].chatTimes = players[socket.id].chatTimes.filter(t => now - t < 4000);
+    players[socket.id].chatTimes.push(now);
+    if (players[socket.id].chatTimes.length >= 5) {
+      players[socket.id].chatTimes = [];
+      const lower = playerName.toLowerCase();
+      mutedNames.add(lower);
+      setTimeout(() => mutedNames.delete(lower), 30000);
+      socket.emit('chat_cooldown', 30);
       return;
     }
     players[socket.id].lastChat = now;
@@ -601,6 +618,18 @@ io.on('connection', (socket) => {
     setTimeout(() => mutedNames.delete(lower), secs * 1000);
     io.emit('chat', { system: true, msg: `⏱️ ${entry[1].name} timed out for ${secs}s.`, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg: `Timed out ${entry[1].name} for ${secs}s.` });
+  });
+
+  socket.on('admin_slowmode', (seconds) => {
+    if (!isAdmin(socket.id) && !subAdmins.has(socket.id)) return;
+    const secs = Math.max(0, parseInt(seconds) || 0);
+    slowMode = secs;
+    if (secs === 0) {
+      io.emit('chat', { system: true, msg: '💬 Slow mode disabled.', time: Date.now() });
+    } else {
+      io.emit('chat', { system: true, msg: `🐢 Slow mode enabled — ${secs}s between messages.`, time: Date.now() });
+    }
+    socket.emit('admin_action_result', { ok: true, msg: secs === 0 ? 'Slow mode off.' : `Slow mode set to ${secs}s.` });
   });
 
   socket.on('admin_cookies', ({ name, amount, action }) => {
