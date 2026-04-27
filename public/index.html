@@ -2410,7 +2410,9 @@
       socket.emit('admin_unmute', parts.slice(1).join(' '));
     } else if (cmd === '/timeout') {
       if (parts.length < 3) { adminLog('Usage: /timeout (name) (seconds)', 'alog-err'); return; }
-      socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: parseInt(parts[parts.length - 1]) });
+      const toSecs = parseInt(parts[parts.length - 1]);
+      if (isNaN(toSecs) || toSecs < 1) { adminLog('Seconds must be a number ≥ 1.', 'alog-err'); return; }
+      socket.emit('admin_timeout', { name: parts.slice(1, -1).join(' '), seconds: toSecs });
     } else if (cmd === '/ban') {
       if (parts.length < 3) { adminLog('Usage: /ban (name) (seconds|perm) [reason]', 'alog-err'); return; }
       // Find duration: first token from index 2 that is 'perm' or a number
@@ -2493,16 +2495,22 @@
     } else if (cmd === '/ipban') {
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
       if (!parts[1] || !parts[2]) { adminLog('Usage: /ipban (ip) (seconds|perm)', 'alog-err'); return; }
-      socket.emit('admin_ipban', { ip: parts[1], duration: parts[2] === 'perm' ? 'perm' : parseInt(parts[2]) });
+      const ipDur = parts[2] === 'perm' ? 'perm' : parseInt(parts[2]);
+      if (ipDur !== 'perm' && (isNaN(ipDur) || ipDur < 1)) { adminLog('Duration must be a number ≥ 1 or "perm".', 'alog-err'); return; }
+      socket.emit('admin_ipban', { ip: parts[1], duration: ipDur });
     } else if (cmd === '/cookie') {
       if (!isOwner) { adminLog('Owner only.', 'alog-err'); return; }
       const action = parts[1];
       if (action === 'add') {
         if (parts.length < 4) { adminLog('Usage: /cookie add (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(parts[parts.length - 1]), action: 'add' });
+        const ckAmt = parseInt(parts[parts.length - 1]);
+        if (isNaN(ckAmt) || ckAmt < 1) { adminLog('Amount must be a number ≥ 1.', 'alog-err'); return; }
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: ckAmt, action: 'add' });
       } else if (action === 'remove') {
         if (parts.length < 4) { adminLog('Usage: /cookie remove (name) (amount)', 'alog-err'); return; }
-        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: parseInt(parts[parts.length - 1]), action: 'remove' });
+        const ckAmt = parseInt(parts[parts.length - 1]);
+        if (isNaN(ckAmt) || ckAmt < 1) { adminLog('Amount must be a number ≥ 1.', 'alog-err'); return; }
+        socket.emit('admin_cookies', { name: parts.slice(2, -1).join(' '), amount: ckAmt, action: 'remove' });
       } else if (action === 'wipe') {
         if (!parts[2]) { adminLog('Usage: /cookie wipe (name)', 'alog-err'); return; }
         socket.emit('admin_cookies', { name: parts.slice(2).join(' '), amount: 999999999999, action: 'remove' });
