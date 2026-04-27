@@ -606,7 +606,10 @@ io.on('connection', (socket) => {
     const lower = targetName.toLowerCase();
     const entry = Object.entries(players).find(([,p]) => p.name.toLowerCase() === lower);
     mutedNames.delete(lower);
-    if (entry) delete mutedIPs[entry[1].ip];
+    if (entry) {
+      delete mutedIPs[entry[1].ip];
+      io.to(entry[0]).emit('chat_unmuted'); // clear "You are muted." placeholder
+    }
     io.emit('chat', { system: true, msg: `🔊 ${targetName} was unmuted.`, time: Date.now() });
     socket.emit('admin_action_result', { ok: true, msg: `Unmuted ${targetName}.` });
   });
@@ -646,7 +649,7 @@ io.on('connection', (socket) => {
     if (!owners.has(socket.id)) return;
     const entry = Object.entries(players).find(([,p]) => p.name === name);
     if (!entry) { socket.emit('admin_action_result', { ok: false, msg: `"${name}" not found.` }); return; }
-    const amt = Math.max(0, parseInt(amount) || 0);
+    const amt = Math.max(1, parseInt(amount) || 1);
     io.to(entry[0]).emit('admin_cookie_change', { amount: amt, action });
     socket.emit('admin_action_result', { ok: true, msg: `${action === 'add' ? 'Added' : 'Removed'} ${amt} cookies ${action === 'add' ? 'to' : 'from'} ${name}.` });
   });
@@ -790,7 +793,9 @@ io.on('connection', (socket) => {
     if (!owners.has(socket.id)) return;
     const isPerm = duration === 'perm';
     const safeIp = String(ip).slice(0, 100);
-    bannedIPs[safeIp] = isPerm ? 'perm' : Date.now() + (parseInt(duration) || 60) * 1000;
+    const durSecs = parseInt(duration);
+    if (!isPerm && (isNaN(durSecs) || durSecs < 1)) { socket.emit('admin_action_result', { ok: false, msg: 'Duration must be a number ≥ 1 or "perm".' }); return; }
+    bannedIPs[safeIp] = isPerm ? 'perm' : Date.now() + durSecs * 1000;
     // Kick any currently connected player with this IP
     Object.entries(players).forEach(([sid, p]) => {
       if (p.ip === safeIp) {
